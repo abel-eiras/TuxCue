@@ -64,4 +64,51 @@ rama, de forma que la PR incluya diff real (código de Fase 0) cuando se abra.
 
 ## Fase 0 — Contrato Compartido (Core Contracts)
 
-<!-- Las entradas de Fase 0 se añadirán aquí durante la implementación -->
+### [2026-05-11] PySide6 requiere libEGL en entornos headless
+
+**Contexto:** Al ejecutar los tests de `AudioController` (que instancian `QObject` y emiten
+señales Qt) en el entorno de desarrollo (contenedor Linux sin display), los tests se marcaban
+como SKIPPED porque la importación de `PySide6.QtWidgets` lanzaba:
+`ImportError: libEGL.so.1: cannot open shared object file: No such file or directory`.
+
+**Problema:** El check `_qt_available = True/False` se evaluaba en tiempo de importación del
+módulo de test. Como la importación fallaba, la variable quedaba `False` y todos los tests del
+módulo se marcaban como SKIPPED en lugar de FAILED, ocultando la causa real.
+
+**Causa raíz:** PySide6 enlaza dinámicamente con `libEGL.so.1` en el momento de importar el
+módulo C extension, independientemente de la plataforma de renderizado elegida
+(`QT_QPA_PLATFORM`). El entorno no tenía instalado el paquete del sistema `libegl1`.
+
+**Resolución (dos pasos):**
+1. Se añadió `tests/conftest.py` con `os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")`
+   para asegurar que Qt use el backend offscreen en entornos sin display.
+2. Se instaló la dependencia del sistema: `apt-get install -y libegl1`.
+
+**Lección:**
+- `QT_QPA_PLATFORM=offscreen` solo evita que Qt intente conectar a un display real en
+  *runtime*; no elimina la dependencia de `libEGL.so.1` en tiempo de *import*.
+- En entornos CI o contenedores, añadir `libegl1` (o `libegl-mesa0`) al Dockerfile/setup.
+- El patrón `try/except ImportError → pytestmark.skipif` es útil para tests opcionales
+  (p.ej. si PySide6 no está instalado), pero enmascara errores de entorno. Documentar
+  siempre las dependencias del sistema en `docs/03_TECH_STACK.md`.
+
+### [2026-05-11] Decisión: callbacks como Callables en IAudioEngine, no Qt signals
+
+**Contexto:** Diseño de cómo el `AudioEngine` notifica al `AudioController` cuando un stream
+arranca, termina o falla.
+
+**Opciones consideradas:**
+1. Que `AudioEngine` emita señales Qt directamente.
+2. Que `AudioEngine` reciba callbacks Python planos (`Callable[[str], None]`).
+
+**Decisión:** Se eligió la opción 2 (callbacks Python).
+
+**Razonamiento:**
+- La opción 1 requeriría que `AudioEngine` heredara de `QObject` o tuviera referencia a Qt,
+  lo que viola el principio de que `src/audio` no depende de `src/gui` ni de Qt.
+- Con la opción 2, `AudioEngine` es puro Python + miniaudio: no importa PySide6 en absoluto.
+  Esto lo hace testeable sin `QApplication`, portable a otros backends (JACK, etc.) y
+  ejecutable en contextos sin display.
+- `AudioController` (que sí es `QObject`) recibe los callbacks y los convierte en señales Qt.
+  La emisión de señales Qt es thread-safe, por lo que los callbacks pueden llamarse desde
+  el hilo de audio de miniaudio sin riesgo.
