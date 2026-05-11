@@ -123,14 +123,17 @@ vuelve a llamar `next()` internamente, lo que consumiría el primer chunk de aud
 1024 frames (≈23 ms a 44100 Hz) se descartaría silenciosamente. En audio de teatro esto es
 imperceptible, pero es incorrecto por principio.
 
-**Estado:** No confirmado — requiere prueba con hardware real (el test suite usa mock del device).
+**Estado:** ✅ RESUELTO — comportamiento correcto confirmado inspeccionando el código fuente
+de miniaudio.
 
-**Acción pendiente:** Verificar el comportamiento de `miniaudio.PlaybackDevice.start()` con un
-fichero WAV real en el entorno de desarrollo con altavoces. Si el primer chunk se descarta,
-eliminar el `next(gen)` de `start()` y ajustar la inicialización del generador.
+**Resolución:** El docstring de `PlaybackDevice.start()` dice explícitamente:
+_"The generator should already be started before passing it in."_
+Esto confirma que miniaudio **no** llama `next()` internamente — requiere que el caller lo
+prime. El `next(gen)` en `TrackStream.start()` es correcto y necesario.
 
-**Lección:** Los tests hardware-free son necesarios pero no suficientes para el backend de audio.
-Incluir al menos un test de integración con un fichero WAV real en el checklist de Fase 2.
+**Lección:** Antes de registrar una duda como "pendiente de hardware", inspeccionar el código
+fuente de la librería con `inspect.getsource()`. Habría resuelto esto sin necesidad de hardware.
+Los tests hardware-free son necesarios pero no suficientes; complementar con integración real.
 
 ---
 
