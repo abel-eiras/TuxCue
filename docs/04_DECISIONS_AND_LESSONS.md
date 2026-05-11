@@ -108,3 +108,26 @@ arranca, termina o falla.
 - `AudioController` (que sí es `QObject`) recibe los callbacks y los convierte en señales Qt.
   La emisión de señales Qt es thread-safe, por lo que los callbacks pueden llamarse desde
   el hilo de audio de miniaudio sin riesgo.
+
+---
+
+## Rama A — Motor de Audio
+
+### [2026-05-11] Posible doble-priming del generador en TrackStream.start()
+
+**Contexto:** En `src/audio/stream.py`, el método `start()` prima el generador con `next(gen)`
+antes de pasarlo a `miniaudio.PlaybackDevice.start(gen)`. La duda es si `PlaybackDevice.start()`
+vuelve a llamar `next()` internamente, lo que consumiría el primer chunk de audio dos veces.
+
+**Impacto potencial:** Si `PlaybackDevice` llama `next()` internamente, el primer chunk de
+1024 frames (≈23 ms a 44100 Hz) se descartaría silenciosamente. En audio de teatro esto es
+imperceptible, pero es incorrecto por principio.
+
+**Estado:** No confirmado — requiere prueba con hardware real (el test suite usa mock del device).
+
+**Acción pendiente:** Verificar el comportamiento de `miniaudio.PlaybackDevice.start()` con un
+fichero WAV real en el entorno de desarrollo con altavoces. Si el primer chunk se descarta,
+eliminar el `next(gen)` de `start()` y ajustar la inicialización del generador.
+
+**Lección:** Los tests hardware-free son necesarios pero no suficientes para el backend de audio.
+Incluir al menos un test de integración con un fichero WAV real en el checklist de Fase 2.
