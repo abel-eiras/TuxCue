@@ -19,45 +19,41 @@ Formato de cada entrada:
 
 ## Fase de Especificación (Spec-Driven Development)
 
-### [2026-05-11] Nombre del proyecto: StageCue → TuxCue
+### [2026-05-11] El Documento Maestro es la única fuente de verdad para nombres propios
 
-**Contexto:** El primer borrador de docs usaba "StageCue" como nombre (derivado del brief inicial
-del asistente). El Documento Maestro proporcionado por el usuario usa "TuxCue".
+**Contexto:** Durante la fase de spec inicial, el asistente extrapoló el nombre del proyecto
+a partir del brief en lugar de tomarlo literalmente del Documento Maestro.
 
-**Problema:** Los ficheros `docs/01_PRD.md`, `docs/02_ARCHITECTURE.md`, `.cursorrules` y el
-nombre de la extensión de sesión (`.stagecue.json`) no coincidían con el Documento Maestro.
+**Causa raíz:** Error de asunción. El Documento Maestro existía y era explícito; no había
+ninguna ambigüedad que justificase la extrapolación.
 
-**Causa raíz:** El nombre fue extrapolado del brief en lugar de tomarse literalmente del
-Documento Maestro. Error de asunción durante la fase de spec inicial.
-
-**Resolución:** En la segunda iteración de los docs se renombraron todas las referencias a
-"TuxCue" y la extensión de sesión a `.tuxcue.json`.
+**Resolución:** Todos los documentos, extensiones de fichero y referencias se corrigieron para
+coincidir exactamente con el Documento Maestro.
 
 **Lección:** El Documento Maestro es la fuente de verdad. Nunca extrapolar nombres propios;
-copiarlos literalmente. Si hay ambigüedad, preguntar antes de escribir.
+copiarlos literalmente. Si hay ambigüedad real, preguntar antes de escribir.
 
 ---
 
-### [2026-05-11] Rama `main` no existía al crear la PR
+### [2026-05-11] Rama `main` no existía al crear la primera PR
 
-**Contexto:** Se intentó crear una PR desde `claude/stagecue-spec-phase-rUv82` hacia `main`
-al finalizar la fase de spec.
+**Contexto:** Se intentó crear una PR al finalizar la fase de spec en un repositorio recién
+inicializado que solo tenía la rama de trabajo activa.
 
-**Problema:** La API de GitHub devolvió `422 Validation Failed` porque el repositorio no tenía
-rama `main` (era un repo nuevo con un solo commit en la rama de trabajo).
+**Problema:** La API de GitHub devolvió `422 Validation Failed` — no había rama `main` como
+destino de la PR.
 
 **Causa raíz:** Los repositorios nuevos sin push inicial a `main` no tienen esa rama por defecto.
-El flujo habitual de "crear repo → primera rama de feature" omite crear `main` explícitamente.
+El flujo "crear repo → primera rama de feature" omite crear `main` explícitamente.
 
-**Resolución:** Se creó `main` apuntando al commit actual de la rama de spec via GitHub MCP
-(`create_branch main from claude/stagecue-spec-phase-rUv82`).
+**Resolución:** Se creó `main` apuntando al commit actual de la rama de trabajo via GitHub MCP.
 
-**Consecuencia secundaria:** Como `main` quedó apuntando al mismo commit que la rama de spec,
+**Consecuencia secundaria:** Como `main` quedó apuntando al mismo commit que la rama de trabajo,
 la PR habría mostrado 0 diferencias. Se decidió continuar implementando Fase 0 sobre la misma
-rama, de forma que la PR incluya diff real (código de Fase 0) cuando se abra.
+rama para que la PR incluya diff real de código.
 
-**Lección:** En repositorios nuevos, crear y hacer push a `main` con un commit inicial vacío
-(o el README) antes de crear ramas de feature. El orden correcto es:
+**Lección:** En repositorios nuevos, crear y hacer push a `main` con un commit inicial antes de
+crear ramas de feature. El orden correcto es:
 `git init → commit inicial en main → push main → crear rama de feature → PR`.
 
 ---
