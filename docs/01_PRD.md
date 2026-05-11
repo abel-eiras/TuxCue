@@ -1,115 +1,111 @@
-# StageCue — Product Requirements Document (PRD)
+# TuxCue — Product Requirements Document (PRD)
 
-**Version:** 1.0  
-**Status:** Specification  
-**Date:** 2026-05-11  
-
----
-
-## 1. Visión General
-
-StageCue es una aplicación de escritorio para Linux orientada a técnicos de sonido y directores de escena que necesitan disparar efectos de sonido, músicas de ambiente y cues de audio durante espectáculos teatrales, performances en directo o ensayos.
-
-El paradigma de V1 es un **Cartwall / Soundboard** avanzado: un tablero donde cada fila representa una pista de audio que puede reproducirse de forma totalmente independiente, con su propio volumen y estado de loop, sin bloquear ni interferir con el resto.
+**Version:** 1.1  
+**Status:** Activo  
+**Fuente:** Documento Maestro de Especificaciones  
+**Fecha:** 2026-05-11  
 
 ---
 
-## 2. Alcance de V1
+## 1. Visión y Concepto
 
-### 2.1 Lo que StageCue V1 ES
+**TuxCue** es un software de reproducción de audio diseñado específicamente para la regiduría y el control de sonido en producciones teatrales y espectáculos en directo. Su objetivo es ofrecer precisión visual absoluta y control táctico sobre múltiples pistas, superando las limitaciones de los reproductores convencionales sin llegar a la complejidad innecesaria de un DAW completo en su etapa inicial.
 
-- Un reproductor polifónico de archivos de audio.
-- Un gestor de sesiones/proyectos persistentes.
-- Una interfaz limpia y rápida, apta para uso en oscuridad (high-contrast opcional).
-- Una herramienta diseñada para teclado y ratón en igualdad de condiciones.
+### Fases del Producto
 
-### 2.2 Lo que StageCue V1 NO ES
-
-- Un editor de audio (sin recorte, fade manual ni procesado).
-- Un secuenciador o DAW con línea de tiempo (reservado para V2).
-- Una herramienta de red o colaboración en tiempo real.
+| Fase | Nombre | Descripción |
+|---|---|---|
+| **Fase 1** (actual) | Cartwall / Soundboard | Sistema de lista de reproducción **no lineal**. No salta automáticamente a la siguiente pista. Permite polifonía, control individual de volumen y bucles. Ideal para mantener camas de sonido ambientales mientras se disparan efectos puntuales durante una escena. |
+| **Fase 2** (futura) | Línea de Tiempo | Evolución hacia un mini-DAW donde las pistas podrán colocarse en una línea temporal para ejecuciones automatizadas y complejas. |
 
 ---
 
-## 3. Usuarios Objetivo
+## 2. Interfaz de Usuario (UI)
 
-| Rol | Necesidad principal |
-|---|---|
-| Técnico de sonido teatral | Disparar cues de forma precisa y sin latencia perceptible |
-| Director de escena | Gestionar listas de sonidos por función/acto |
-| Músico/DJ en directo | Layering de loops y ambientes simultáneos |
+La interfaz debe ser **limpia** y priorizar la legibilidad rápida en **entornos de poca luz** (típico de las cabinas de control teatral).
+
+### 2.1 Controles Superiores (Filtros)
+
+Ubicados en una barra persistente sobre la tabla principal:
+
+| Control | Tipo | Comportamiento |
+|---|---|---|
+| **Buscador de texto** | `QLineEdit` | Filtra la lista de pistas en tiempo real por nombre. La búsqueda es insensible a mayúsculas. |
+| **Segmentador de tiempo** | Inputs o sliders de rango | Aísla visualmente las pistas cuya duración esté dentro de un rango específico. Se combina acumulativamente con el buscador de texto. |
+
+### 2.2 Vista de Lista Principal (Tabla — Cartwall)
+
+Cada fila representa un archivo de audio cargado. Las columnas son:
+
+| # | Columna | Descripción |
+|---|---|---|
+| 1 | **Nombre** | Título identificativo de la pista. Editable por el usuario. |
+| 2 | **Duración** | Tiempo total del audio, formateado como `MM:SS`. |
+| 3 | **Play / Stop** | Botón de control de reproducción individual. Mientras la pista suena se convierte en Stop. |
+| 4 | **Loop (Bucle)** | Interruptor *toggle*. Cuando está activo, el audio vuelve a empezar al terminar. |
+| 5 | **Volumen** | Slider de ganancia individual. Permite normalizar audios directamente en el software sin depender de la mesa de mezclas de la sala. Rango: **0% – 100%**. |
+
+### 2.3 Interacción del Usuario
+
+- **Drag & Drop interno:** El usuario puede pinchar y arrastrar filas para reordenar los audios según el guion del espectáculo. El nuevo orden se refleja inmediatamente en la sesión y se persiste al guardar.
+- **Carga de archivos:** Mediante menú o arrastre de archivos desde el explorador del sistema operativo.
 
 ---
 
-## 4. Requisitos Funcionales
+## 3. Comportamiento y Lógica de Audio
 
-### RF-01 — Carga de Archivos de Audio
+El núcleo del reproductor se aleja del estándar de consumo (reproducción secuencial) para abrazar las necesidades del directo.
 
-- El usuario puede añadir archivos de audio mediante:
-  - Menú `Archivo > Añadir pistas...` (selector de archivos múltiples).
-  - Drag & Drop de archivos desde el explorador del sistema operativo al área de la tabla.
-- Formatos soportados mínimos: **WAV**, **MP3**, **OGG**, **FLAC**.
-- Cada pista añadida aparece como una nueva fila en la tabla principal.
+### 3.1 Polifonía (Multicanalidad)
 
-### RF-02 — Tabla Principal (Cartwall)
+Es el comportamiento fundamental:
 
-La tabla principal es la UI central. Cada fila representa una pista con las siguientes columnas:
+- El usuario puede dar *Play* a la "Pista 1" (ej. ambiente de lluvia) y, mientras suena, dar *Play* a la "Pista 2" (ej. trueno).
+- **Ambas pistas suenan simultáneamente** y se mezclan hacia la salida maestra sin cortes ni latencia perceptible.
+- No hay límite de software en el número de pistas simultáneas; el límite es el hardware del sistema.
 
-| # | Columna | Tipo de widget | Descripción |
-|---|---|---|---|
-| 1 | **Nombre** | Texto editable | Nombre legible de la pista (por defecto: nombre del fichero sin extensión) |
-| 2 | **Duración** | Texto (read-only) | Duración total formateada como `MM:SS` |
-| 3 | **Play / Stop** | Botón (delegado) | Alterna entre ▶ (inactiva) y ■ (reproduciendo) |
-| 4 | **Loop** | Botón toggle (delegado) | Indica si la pista está en bucle (🔁 activo / off) |
-| 5 | **Volumen** | Slider (delegado) | Rango 0–100%, muesca visible en 80% (nivel de carga por defecto) |
-| 6 | **Ruta** | Texto (oculto/opcional) | Ruta absoluta al fichero; visible en modo diagnóstico |
+### 3.2 Aislamiento de Estado
 
-### RF-03 — Controles Globales (Toolbar / Header)
+- El volumen, el estado de reproducción y el estado de bucle de una pista **no afectan en absoluto a las demás**.
+- Un fallo en la reproducción de una pista no interrumpe ni bloquea las otras.
 
-- **Parar todo**: Detiene inmediatamente todos los streams activos.
-- **Volumen Master**: Slider global que escala todos los volúmenes individuales.
-- **Indicador de nivel (VU)**: Medidor visual simple del output total (opcional en V1, requerido en V1.1).
+### 3.3 Comportamiento de Play / Stop
 
-### RF-04 — Filtros Superiores
+- **Play** en pista inactiva: abre un stream de audio y comienza la reproducción.
+- **Stop** (pulsar de nuevo Play mientras suena): detiene la reproducción y reinicia la posición al inicio.
+- **Loop activo:** al llegar al final del archivo, el stream recomienza automáticamente desde el inicio.
+- **Loop inactivo:** al llegar al final, el stream se cierra y el botón vuelve al estado ▶.
 
-Ubicados en una barra persistente encima de la tabla:
+### 3.4 Control de Volumen en Tiempo Real
 
-- **Barra de búsqueda**: Filtra filas por nombre de pista (búsqueda en tiempo real, `QSortFilterProxyModel`).
-- **Segmentador de duración**: Un widget de selección por rangos:
-  - `Todos` | `< 30s` | `30s–2m` | `2m–5m` | `> 5m`
-  - Filtra las filas visibles según la duración de la pista.
-  - Se puede combinar con la búsqueda por nombre (filtros acumulativos).
+- El slider de volumen modifica la ganancia del stream **mientras suena**, sin cortes ni reinicio.
+- El nivel por defecto al cargar una pista es **80%** (0.8 en escala lineal 0.0–1.0).
 
-### RF-05 — Comportamiento de Reproducción (Polifonía)
+---
 
-- Se pueden reproducir **N pistas simultáneamente** sin restricción de hardware impuesta por la aplicación.
-- Cada pista es un stream de audio independiente gestionado por el motor de audio.
-- Al pulsar **Play** en una pista inactiva: se abre un stream y comienza la reproducción.
-- Al pulsar **Stop** (≡ Play de nuevo mientras suena): se detiene y reinicia la posición al inicio.
-- **Loop activado**: al llegar al final del archivo, el stream recomienza automáticamente desde el inicio.
-- **Loop desactivado**: al llegar al final, el stream se cierra y la UI actualiza el botón a ▶.
+## 4. Gestión de Sesiones (Persistencia)
 
-### RF-06 — Control de Volumen por Pista
+Para ser una herramienta de trabajo viable, la configuración de un espectáculo no puede perderse al cerrar el programa.
 
-- El volumen individual actúa como multiplicador del volumen del stream.
-- El cambio de volumen se aplica **en tiempo real** sin reiniciar el stream.
-- El valor por defecto al cargar una pista es **80%**.
-- El rango visible del slider es 0%–100%; internamente puede mapearse a un rango lineal 0.0–1.0.
+### 4.1 Operaciones
 
-### RF-07 — Reordenación por Drag & Drop
+| Acción | Atajo | Descripción |
+|---|---|---|
+| **Guardar** | `Ctrl+S` | Serializa el estado actual al fichero de sesión activo. |
+| **Guardar como** | `Ctrl+Shift+S` | Permite elegir la ruta del fichero de sesión. |
+| **Cargar / Abrir** | `Ctrl+O` | Carga un fichero `.tuxcue.json` y restaura el estado completo. |
+| **Nueva sesión** | `Ctrl+N` | Limpia la tabla (con confirmación si hay cambios sin guardar). |
 
-- Las filas de la tabla son reordenables mediante drag & drop interno.
-- El orden se preserva en la sesión y en el fichero de guardado.
-- No se permite drag & drop externo de filas (solo archivos desde el SO para añadir pistas).
+### 4.2 Formato de Datos: JSON
 
-### RF-08 — Gestión de Sesiones / Proyectos
+El archivo guardará exactamente los siguientes datos, conforme al Documento Maestro:
 
-- **Guardar sesión** (`Ctrl+S`): serializa el estado actual a un fichero `.stagecue.json`.
-- **Guardar como** (`Ctrl+Shift+S`): selector de ruta para el fichero.
-- **Abrir sesión** (`Ctrl+O`): carga un fichero `.stagecue.json` y restaura el estado completo.
-- **Nueva sesión** (`Ctrl+N`): limpia la tabla (con confirmación si hay cambios sin guardar).
+1. La **ruta absoluta** de cada archivo de audio cargado.
+2. El **orden exacto** en el que aparecen en la lista.
+3. El **nivel de volumen** configurado en el slider de cada pista.
+4. El **estado del botón Loop** (activo/inactivo) de cada pista.
 
-#### Estructura del fichero `.stagecue.json`:
+#### Estructura de referencia del fichero `.tuxcue.json`:
 
 ```json
 {
@@ -117,112 +113,94 @@ Ubicados en una barra persistente encima de la tabla:
   "tracks": [
     {
       "id": "uuid-v4",
-      "name": "Lluvia exterior",
+      "name": "Ambiente lluvia",
       "path": "/home/user/sounds/rain.wav",
-      "volume": 0.75,
+      "volume": 0.8,
       "loop": true
+    },
+    {
+      "id": "uuid-v4",
+      "name": "Trueno",
+      "path": "/home/user/sounds/thunder.wav",
+      "volume": 1.0,
+      "loop": false
     }
   ]
 }
 ```
 
-### RF-09 — Estados de Pista y Retroalimentación Visual
+> **Nota:** El estado de reproducción (`is_playing`) nunca se serializa. Las sesiones siempre cargan con todos los tracks detenidos.
 
-| Estado | Color de fila / indicador |
-|---|---|
-| Inactiva | Color por defecto del tema |
-| Reproduciendo | Fondo suavemente resaltado (verde/azul) |
-| Reproduciendo en loop | Fondo resaltado + icono 🔁 animado (opcional) |
-| Archivo no encontrado | Fondo rojo tenue + tooltip de error |
+### 4.3 Tolerancia a Fallos de Carga
 
-### RF-10 — Accesibilidad y Atajos de Teclado
-
-- Navegación completa por teclado en la tabla.
-- `Espacio`: Play/Stop de la fila seleccionada.
-- `L`: Toggle de Loop de la fila seleccionada.
-- `Supr`: Eliminar pista seleccionada (con confirmación).
-- `Ctrl+A`: Seleccionar todas las pistas.
-- `Esc`: Limpiar selección.
+- Si al cargar una sesión un archivo no se encuentra en la ruta guardada, la aplicación:
+  - Informa al usuario del problema (visual y/o diálogo).
+  - Carga el resto de pistas sin bloquear la operación.
+  - Marca visualmente las pistas con archivo no encontrado.
 
 ---
 
 ## 5. Requisitos No Funcionales
 
-### RNF-01 — Latencia de Audio
-
-- La latencia entre la pulsación de Play y el inicio del audio **no debe superar 50ms** en hardware moderno bajo condiciones normales.
-- El buffer del stream de audio debe ser configurable (por defecto: 1024 frames).
-
-### RNF-02 — Estabilidad y Aislamiento
-
-- Un fallo en la reproducción de una pista no debe bloquear la UI ni afectar a las demás pistas.
-- El motor de audio se ejecuta en hilos separados del hilo principal de Qt.
-
-### RNF-03 — Rendimiento de la UI
-
-- La tabla debe responder fluidamente con hasta **500 pistas** cargadas.
-- Los filtros deben aplicarse con latencia imperceptible (< 16ms).
-
-### RNF-04 — Compatibilidad
-
-- **SO**: Linux (Ubuntu 22.04+, Fedora 38+, Arch Linux).
-- **Python**: 3.11+.
-- **Dependencias de sistema**: ALSA o PulseAudio (gestionadas por miniaudio transparentemente).
-
-### RNF-05 — Portabilidad de Sesiones
-
-- Las rutas en el JSON deben guardarse como absolutas.
-- Al cargar una sesión con rutas inaccesibles, la app informa pero carga el resto.
+| ID | Requisito | Criterio |
+|---|---|---|
+| RNF-01 | **Latencia de audio** | < 50 ms entre pulsación de Play y inicio del sonido en hardware moderno. |
+| RNF-02 | **Estabilidad** | La UI no se congela en ninguna operación de audio. El motor corre en hilos separados. |
+| RNF-03 | **Rendimiento de la UI** | Fluidez con hasta 500 pistas cargadas; los filtros responden en < 16 ms. |
+| RNF-04 | **Compatibilidad de SO** | Linux x86_64 (Ubuntu 22.04+, Fedora 38+, Arch Linux). |
+| RNF-05 | **Legibilidad en oscuridad** | Interfaz de alto contraste, tipografía clara, sin elementos decorativos que distraigan. |
 
 ---
 
 ## 6. Casos de Uso Principales
 
-### CU-01: Técnico prepara sesión pre-función
+### CU-01: Preparación pre-función
 
-1. Abre StageCue.
-2. Arrastra 20 ficheros WAV/MP3 a la tabla.
-3. Renombra cada pista con el nombre del cue.
-4. Ajusta volúmenes individualmente.
-5. Activa loop en las pistas de ambiente.
-6. Guarda la sesión como `funcion_01.stagecue.json`.
-7. Cierra y reabre: el estado se restaura íntegramente.
+1. El técnico abre TuxCue.
+2. Arrastra los ficheros de audio a la tabla.
+3. Renombra cada pista con el nombre del cue del guion.
+4. Ajusta el volumen individual de cada pista para compensar diferencias de ganancia.
+5. Activa Loop en las pistas de ambiente.
+6. Guarda la sesión como `funcion_sabado_noche.tuxcue.json`.
+7. Cierra y reabre: el estado se restaura íntegramente (orden, nombres, volúmenes, loops).
 
-### CU-02: Ejecución de cues en directo
+### CU-02: Ejecución en directo
 
-1. El técnico tiene la sesión cargada, tabla visible.
-2. Filtra por nombre "Acto 1" para ver solo las pistas relevantes.
-3. Pulsa Play en "Música entrada actores" — empieza a sonar.
-4. Dos minutos después, pulsa Play en "Ambiente lluvia" (ambas suenan simultáneamente).
-5. Pulsa Stop en "Música entrada actores" para silenciarla.
-6. "Ambiente lluvia" sigue en loop hasta que el técnico la para.
+1. El técnico tiene la sesión cargada.
+2. Filtra por "Acto 1" para ver solo las pistas relevantes.
+3. Da Play a "Música entrada actores" — empieza a sonar.
+4. Dos minutos después, da Play a "Ambiente lluvia" — ambas suenan simultáneamente.
+5. Da Stop a "Música entrada actores" para silenciarla; "Ambiente lluvia" sigue en loop.
+6. Ajusta el volumen de "Ambiente lluvia" en tiempo real sin cortes.
 
-### CU-03: Ajuste de última hora
+### CU-03: Ajuste de emergencia
 
-1. El técnico necesita bajar el volumen de una pista que ya está sonando.
-2. Mueve el slider de esa fila — el cambio es inmediato y sin cortes.
+1. Una pista suena demasiado alta durante la función.
+2. El técnico mueve el slider de esa fila: el cambio es inmediato y sin reiniciar el audio.
 
 ---
 
-## 7. Criterios de Aceptación (DoD — Definition of Done para V1)
+## 7. Criterios de Aceptación — V1 (Definition of Done)
 
-- [ ] Las pistas se cargan y muestran en la tabla con nombre y duración correctos.
+- [ ] Las pistas se cargan y muestran en tabla con nombre y duración correctos.
 - [ ] Play/Stop funciona de forma independiente por pista.
-- [ ] Se pueden reproducir al menos 8 pistas simultáneamente sin degradación audible.
-- [ ] El slider de volumen modifica el nivel en tiempo real mientras suena.
-- [ ] El toggle de loop funciona correctamente (la pista vuelve al inicio al terminar).
-- [ ] El filtro por nombre y el segmentador de duración funcionan de forma combinada.
-- [ ] Drag & Drop interno reordena las filas y el orden persiste en la sesión guardada.
-- [ ] Guardar y cargar una sesión restaura el estado completo (nombre, ruta, volumen, loop, orden).
+- [ ] Al menos 8 pistas suenan simultáneamente sin degradación audible.
+- [ ] El slider de volumen modifica el nivel en tiempo real mientras la pista suena.
+- [ ] El toggle de Loop hace que la pista recomience al llegar al final.
+- [ ] El buscador de texto filtra por nombre en tiempo real.
+- [ ] El segmentador de tiempo filtra por rango de duración.
+- [ ] Ambos filtros se combinan de forma acumulativa.
+- [ ] Drag & Drop interno reordena las filas; el orden se persiste en la sesión.
+- [ ] Guardar y cargar una sesión restaura: nombre, ruta, volumen, estado de loop y orden.
 - [ ] Las pistas con archivos no encontrados no bloquean la carga de la sesión.
-- [ ] La UI no se congela durante ninguna operación de audio.
+- [ ] La UI no se congela en ninguna operación de audio.
 
 ---
 
 ## 8. Roadmap
 
-| Versión | Hito principal |
+| Versión | Entregable |
 |---|---|
-| V1.0 | Cartwall funcional con polifonía, sesiones JSON, filtros |
-| V1.1 | VU meter global, waveform thumbnail en la fila, exportar lista de cues a PDF |
-| V2.0 | Línea de tiempo (mini-DAW), automatización de volumen, grupos/buses de audio |
+| V1.0 | Cartwall funcional: polifonía, filtros, drag & drop, sesiones JSON |
+| V1.1 | VU meter global, waveform thumbnail por pista, exportar lista de cues |
+| V2.0 | Línea de tiempo (mini-DAW), automatización de volumen, grupos/buses |

@@ -1,41 +1,54 @@
-# StageCue — Architecture Document
+# TuxCue — Architecture Document
 
-**Version:** 1.0  
-**Status:** Specification  
-**Date:** 2026-05-11  
+**Version:** 1.1  
+**Status:** Activo  
+**Fuente:** Documento Maestro de Especificaciones  
+**Fecha:** 2026-05-11  
 
 ---
 
 ## 1. Principios Arquitectónicos
 
-1. **Desacoplamiento total GUI / Audio**: `src/gui` no importa nada de `src/audio` directamente. Se comunican a través de interfaces definidas en `src/core`.
-2. **El hilo principal de Qt es exclusivamente para la UI**: ninguna llamada de audio, I/O de disco lento o CPU intensiva ocurre en él.
-3. **Spec-Driven Development**: toda modificación relevante actualiza primero los documentos en `docs/` antes de implementarse.
-4. **Preparación para V2**: el motor de audio y el modelo de datos están diseñados para soportar una línea de tiempo sin refactorizaciones mayores.
+Estos principios derivan directamente del Documento Maestro y son invariantes del proyecto:
+
+1. **Patrón MVC con Qt**: La GUI se implementa mediante el patrón Modelo-Vista-Controlador usando los componentes nativos de Qt.
+2. **Desacoplamiento estricto GUI / Audio**: El motor de audio y la interfaz gráfica están completamente separados. Se comunican exclusivamente a través del **patrón Observador (Signals/Slots de Qt)**.
+3. **El audio no bloquea el hilo principal**: El procesamiento de audio no bloquea en ningún caso el hilo principal de la interfaz visual.
+4. **Preparación para Fase 2**: La arquitectura de V1 soporta la futura línea de tiempo sin refactorizaciones mayores.
 
 ---
 
-## 2. Vista de Alto Nivel
+## 2. Vista General del Sistema
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Proceso Principal Qt                     │
-│                                                                 │
-│  ┌──────────────┐   signals/slots   ┌──────────────────────┐   │
-│  │  src/gui     │ ◄────────────────► │   src/core           │   │
-│  │  (View +     │                   │   AudioController    │   │
-│  │   Delegates) │                   │   SessionManager     │   │
-│  └──────────────┘                   │   TrackModel (datos) │   │
-│                                     └──────────┬───────────┘   │
-│                                                │ llamadas       │
-│                                                │ thread-safe    │
-│                                     ┌──────────▼───────────┐   │
-│                                     │   src/audio          │   │
-│                                     │   AudioEngine        │   │
-│                                     │   (hilos de audio)   │   │
-│                                     └──────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                       Proceso Principal Qt (hilo UI)                │
+│                                                                     │
+│  ┌─────────────────┐   Signals/Slots   ┌────────────────────────┐  │
+│  │   src/gui        │ ◄───────────────► │   src/core             │  │
+│  │                  │                   │                        │  │
+│  │  MainWindow      │                   │  AudioController       │  │
+│  │  TrackTableView  │                   │  (única fachada        │  │
+│  │  TrackTableModel │                   │   hacia el audio)      │  │
+│  │  ProxyModel      │                   │                        │  │
+│  │  Delegates       │                   │  SessionManager        │  │
+│  │  FilterBar       │                   │  Track (dataclass)     │  │
+│  └─────────────────┘                   └──────────┬─────────────┘  │
+│                                                    │                │
+│                              Signals/Slots (QueuedConnection)       │
+│                                                    │                │
+│                                         ┌──────────▼─────────────┐ │
+│                                         │   src/audio             │ │
+│                                         │                         │ │
+│                                         │   AudioEngine           │ │
+│                                         │   (hilos de audio,      │ │
+│                                         │   gestionados por       │ │
+│                                         │   miniaudio)            │ │
+│                                         └─────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
 ```
+
+**Regla de oro**: `src/gui` nunca importa `src/audio`. `src/audio` nunca importa `src/gui`. Solo `src/core` puede importar de ambos lados, y lo hace a través de interfaces abstractas.
 
 ---
 
@@ -43,28 +56,31 @@
 
 ```
 TuxCue/
+├── main.py                         # Punto de entrada: crea QApplication y MainWindow
+├── pyproject.toml
+├── .cursorrules
+│
 ├── src/
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── track.py            # Dataclass Track (modelo de datos puro)
-│   │   ├── session.py          # SessionManager: serializa/deserializa JSON
-│   │   ├── audio_controller.py # Fachada entre GUI y AudioEngine
-│   │   └── interfaces.py       # ABCs / Protocols que AudioEngine debe cumplir
+│   │   ├── track.py                # Dataclass Track (modelo de datos puro)
+│   │   ├── session.py              # SessionManager: serializa/deserializa JSON
+│   │   ├── audio_controller.py     # Fachada entre GUI y AudioEngine
+│   │   └── interfaces.py           # Protocol IAudioEngine (permite mockear en tests)
 │   │
 │   ├── audio/
 │   │   ├── __init__.py
-│   │   ├── engine.py           # AudioEngine: gestiona streams miniaudio
-│   │   └── stream.py           # TrackStream: encapsula un stream individual
+│   │   ├── engine.py               # AudioEngine: gestiona streams miniaudio
+│   │   └── stream.py               # TrackStream: encapsula un stream individual
 │   │
 │   └── gui/
 │       ├── __init__.py
-│       ├── main_window.py      # QMainWindow principal
-│       ├── track_table_view.py # QTableView + drag&drop
-│       ├── track_table_model.py# QAbstractTableModel
-│       ├── proxy_model.py      # QSortFilterProxyModel con filtros compuestos
-│       ├── delegates.py        # ItemDelegates para botones y sliders
-│       ├── filter_bar.py       # Widget de barra de filtros (búsqueda + segmentador)
-│       └── toolbar.py          # Toolbar global (Stop All, Master Volume)
+│       ├── main_window.py          # QMainWindow: menú, toolbar, layout principal
+│       ├── track_table_view.py     # QTableView con soporte drag & drop interno
+│       ├── track_table_model.py    # QAbstractTableModel
+│       ├── proxy_model.py          # QSortFilterProxyModel (filtros compuestos)
+│       ├── delegates.py            # QStyledItemDelegate para botones y sliders
+│       └── filter_bar.py           # Widget de barra de filtros (texto + segmentador)
 │
 ├── tests/
 │   ├── __init__.py
@@ -73,14 +89,10 @@ TuxCue/
 │   ├── test_proxy_model.py
 │   └── test_audio_engine.py
 │
-├── docs/
-│   ├── 01_PRD.md
-│   ├── 02_ARCHITECTURE.md
-│   └── 03_TECH_STACK.md
-│
-├── .cursorrules
-├── pyproject.toml
-└── main.py
+└── docs/
+    ├── 01_PRD.md
+    ├── 02_ARCHITECTURE.md
+    └── 03_TECH_STACK.md
 ```
 
 ---
@@ -89,24 +101,25 @@ TuxCue/
 
 ### 4.1 Dataclass `Track`
 
-```python
-# Representación de referencia — no es código de producción todavía
-@dataclass
-class Track:
-    id: str           # UUID v4, inmutable
-    name: str         # Nombre editable por el usuario
-    path: Path        # Ruta absoluta al fichero
-    volume: float     # 0.0 – 1.0 (por defecto 0.8)
-    loop: bool        # Estado de loop
-    duration_s: float # Calculado al cargar, read-only desde la UI
+El objeto `Track` es el modelo de datos canónico. Circula entre las tres capas (GUI, Core y Audio) como una estructura de datos pura, sin lógica de negocio ni referencias a Qt.
+
+```
+Track:
+  id        : str    → UUID v4, inmutable, generado al crear el track
+  name      : str    → Nombre editable por el usuario
+  path      : Path   → Ruta absoluta al fichero de audio
+  volume    : float  → Ganancia individual, rango [0.0 – 1.0], default 0.8
+  loop      : bool   → Estado del toggle de bucle
+  duration_s: float  → Calculado por AudioEngine al abrir el fichero (read-only desde GUI)
 ```
 
-### 4.2 Invariantes
+### 4.2 Invariantes del Modelo
 
-- `id` se genera al crear el Track y nunca cambia, ni al reordenar ni al editar.
-- `path` es siempre absoluta. El SessionManager la resuelve al guardar.
-- `duration_s` es calculado por el AudioEngine al abrir el fichero por primera vez.
-- `volume` está limitado al rango `[0.0, 1.0]`; valores fuera se clampean.
+- `id` se genera en la construcción y **nunca cambia**, ni al reordenar ni al editar nombre.
+- `path` es siempre **absoluta**; `SessionManager` la resuelve en el guardado.
+- `duration_s` es calculado por el `AudioEngine`; la GUI no lo calcula.
+- `volume` está clampado al rango `[0.0, 1.0]`; valores fuera se rechazan.
+- El estado `is_playing` **no forma parte del `Track`**: es responsabilidad del `AudioController`.
 
 ---
 
@@ -114,25 +127,16 @@ class Track:
 
 ### 5.1 `TrackTableModel(QAbstractTableModel)`
 
-Responsabilidades:
-- Mantiene una lista ordenada de objetos `Track`.
-- Expone datos a la vista mediante `data()`, `setData()`, `headerData()`.
-- Emite `dataChanged` cuando una propiedad de una pista cambia.
-- Soporta `Qt.ItemIsDropEnabled` y `Qt.ItemIsDragEnabled` para reordenación interna.
-- **No conoce ni llama directamente al AudioEngine.**
+Implementa `QAbstractTableModel` según el patrón MVC de Qt. Es el **único dueño** de la lista ordenada de objetos `Track` en la capa GUI.
 
-#### Roles personalizados:
+**Responsabilidades:**
+- Mantener la lista ordenada de `Track`.
+- Exponer datos a la vista (`data()`, `setData()`, `headerData()`).
+- Emitir `dataChanged` cuando una propiedad cambia.
+- Soportar drag & drop interno para reordenación.
+- **No llama directamente al AudioEngine ni al AudioController.** Solo emite señales.
 
-```python
-class TrackRole:
-    PlayState  = Qt.UserRole + 1   # bool: ¿está sonando?
-    LoopState  = Qt.UserRole + 2   # bool
-    Volume     = Qt.UserRole + 3   # float 0.0–1.0
-    TrackId    = Qt.UserRole + 4   # str UUID
-    DurationS  = Qt.UserRole + 5   # float segundos
-```
-
-#### Columnas:
+#### Columnas definidas como `IntEnum`:
 
 ```python
 class Column(IntEnum):
@@ -143,13 +147,27 @@ class Column(IntEnum):
     VOLUME   = 4
 ```
 
-### 5.2 Operaciones de Drag & Drop
+#### Roles personalizados para los delegados:
 
-- `supportedDragActions()` → `Qt.MoveAction`
-- `supportedDropActions()` → `Qt.MoveAction`
-- `mimeData()` serializa los índices de fila origen.
-- `dropMimeData()` reordena la lista interna y emite `layoutChanged`.
-- El origen y destino son siempre internos a la misma tabla.
+```python
+class TrackRole:
+    PlayState = Qt.UserRole + 1   # bool: ¿está reproduciendo?
+    LoopState = Qt.UserRole + 2   # bool
+    Volume    = Qt.UserRole + 3   # float 0.0–1.0
+    TrackId   = Qt.UserRole + 4   # str UUID
+    DurationS = Qt.UserRole + 5   # float segundos
+```
+
+### 5.2 Drag & Drop Interno
+
+El modelo soporta reordenación interna mediante los métodos estándar de Qt:
+
+- `flags()`: incluye `Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled` en cada fila.
+- `supportedDragActions()` / `supportedDropActions()` → `Qt.MoveAction`.
+- `mimeData()`: serializa las filas origen.
+- `dropMimeData()`: reordena la lista interna y emite `layoutChanged`.
+
+El drag & drop externo (desde el SO) para añadir pistas se gestiona en `TrackTableView`, no en el modelo.
 
 ---
 
@@ -157,40 +175,47 @@ class Column(IntEnum):
 
 ### 6.1 `TrackFilterProxyModel(QSortFilterProxyModel)`
 
-Combina dos filtros de forma acumulativa:
+Implementa los dos filtros de la UI sin alterar los datos del modelo base, según el Documento Maestro.
 
-1. **Filtro de nombre**: `filterRegularExpression` con `setCaseSensitivity(Qt.CaseInsensitive)`.
-2. **Filtro de duración**: lógica personalizada en `filterAcceptsRow()` que lee `TrackRole.DurationS`.
+**Filtros acumulativos** (ambos deben pasar para que una fila sea visible):
+
+1. **Filtro de texto**: `filterRegularExpression` con `Qt.CaseInsensitive`. Se actualiza en tiempo real al escribir en el buscador.
+2. **Filtro de duración**: Lógica personalizada en `filterAcceptsRow()` que lee `TrackRole.DurationS`.
 
 ```
 filterAcceptsRow(row, parent):
-    track_passes_name_filter = QSortFilterProxyModel.filterAcceptsRow(self, row, parent)
-    track_passes_duration_filter = self._duration_filter_passes(row, parent)
-    return track_passes_name_filter AND track_passes_duration_filter
+    return (
+        QSortFilterProxyModel.filterAcceptsRow(self, row, parent)  # filtro texto
+        AND self._duration_filter_passes(row, parent)               # filtro duración
+    )
 ```
 
-### 6.2 Segmentos de duración
+### 6.2 Segmentos de Duración
+
+El segmentador de tiempo expone estos rangos (configurables desde la `FilterBar`):
 
 ```python
 class DurationSegment(IntEnum):
-    ALL       = 0
+    ALL       = 0   # Sin filtro
     UNDER_30S = 1   # duration_s < 30
     S30_TO_2M = 2   # 30 <= duration_s < 120
     M2_TO_5M  = 3   # 120 <= duration_s < 300
     OVER_5M   = 4   # duration_s >= 300
 ```
 
+Alternativamente, la UI puede exponer inputs de rango libre (min/max en segundos) en lugar de segmentos fijos; la lógica de filtro es la misma.
+
 ---
 
 ## 7. Delegados: `src/gui/delegates.py`
 
-Los delegados permiten renderizar y gestionar la interacción con widgets complejos dentro de las celdas de la tabla sin necesidad de `QTableWidget` ni `setCellWidget`.
+El Documento Maestro especifica el uso de **`QStyledItemDelegate`** (o `setIndexWidget`) para los botones y sliders dentro de las celdas. La implementación preferida es mediante delegados puros (sin widgets persistentes) para máxima eficiencia con listas largas.
 
 ### 7.1 `PlayButtonDelegate(QStyledItemDelegate)`
 
-- `paint()`: dibuja un botón ▶ o ■ según `TrackRole.PlayState`.
-- `editorEvent()`: detecta `QEvent.MouseButtonRelease` dentro del rect del botón y emite una señal `play_stop_requested(track_id: str)`.
-- Sin widget persistente: el estado visual se actualiza vía `dataChanged`.
+- `paint()`: dibuja ▶ o ■ según `TrackRole.PlayState`.
+- `editorEvent()`: detecta `MouseButtonRelease` y emite `play_stop_requested(track_id: str)`.
+- No crea widgets persistentes; el estado se actualiza via `dataChanged`.
 
 ### 7.2 `LoopButtonDelegate(QStyledItemDelegate)`
 
@@ -201,91 +226,98 @@ Los delegados permiten renderizar y gestionar la interacción con widgets comple
 
 - `paint()`: dibuja un slider horizontal con el valor de `TrackRole.Volume`.
 - `createEditor()`: devuelve un `QSlider` real durante la edición activa.
-- `setEditorData()` / `setModelData()`: sincroniza el valor entre el modelo y el editor.
-- Emite cambios en tiempo real via `commitData` para que el AudioController los propague al stream.
+- `setEditorData()` / `setModelData()`: sincroniza entre modelo y editor.
+- Emite cambios en tiempo real via `commitData` para que el `AudioController` los propague al stream.
+
+> **Nota sobre `setIndexWidget`**: Para filas con pocos elementos, `setIndexWidget` es válido como alternativa más simple. Para listas de más de ~100 pistas, los delegados `paint()`-based son significativamente más eficientes.
 
 ---
 
 ## 8. Controlador de Audio: `src/core/audio_controller.py`
 
-### 8.1 `AudioController`
+### 8.1 `AudioController(QObject)`
 
-Fachada que actúa como mediador entre la UI y el AudioEngine. Es el **único punto de entrada** al subsistema de audio desde la capa de presentación.
+Es la **única fachada** entre la capa GUI y el motor de audio. Toda comunicación entre ambas capas pasa por aquí mediante el **patrón Observador (Signals/Slots de Qt)**, tal como especifica el Documento Maestro.
 
 ```
-GUI  ──signals──►  AudioController  ──llamadas──►  AudioEngine (hilos propios)
-GUI  ◄──signals──  AudioController  ◄──callbacks──  AudioEngine
+GUI  ──llamadas──►  AudioController  ──llamadas directas──►  AudioEngine
+GUI  ◄──signals──   AudioController  ◄──callbacks──           AudioEngine
 ```
 
-#### API pública (desde la UI):
+#### API pública (llamada desde la GUI):
+
+```
+play(track_id, path, volume, loop) → None
+stop(track_id)                      → None
+stop_all()                          → None
+set_volume(track_id, volume)        → None
+set_loop(track_id, loop)            → None
+```
+
+#### Señales Qt emitidas hacia la GUI:
 
 ```python
-def play(track_id: str) -> None
-def stop(track_id: str) -> None
-def stop_all() -> None
-def set_volume(track_id: str, volume: float) -> None
-def set_loop(track_id: str, loop: bool) -> None
-def set_master_volume(volume: float) -> None
+track_started  = Signal(str)        # track_id: inicio de reproducción confirmado
+track_stopped  = Signal(str)        # track_id: parada confirmada
+playback_ended = Signal(str)        # track_id: fin natural (sin loop)
+track_error    = Signal(str, str)   # track_id, mensaje_de_error
 ```
 
-#### Señales emitidas hacia la UI (QObject signals):
-
-```python
-track_started    = Signal(str)          # track_id
-track_stopped    = Signal(str)          # track_id
-track_error      = Signal(str, str)     # track_id, error_message
-playback_ended   = Signal(str)          # track_id (fin natural, sin loop)
-```
-
-### 8.2 Flujo de Play
+### 8.2 Flujo de Play (end-to-end)
 
 ```
-Usuario pulsa ▶
-    │
-    ▼
+[Usuario pulsa ▶ en la fila]
+        │
+        ▼
 PlayButtonDelegate.editorEvent()
-    │ emite play_stop_requested(track_id)
-    ▼
-MainWindow slot → AudioController.play(track_id)
-    │ thread-safe call
-    ▼
-AudioEngine._open_stream(track_id, path, volume, loop)  [hilo de audio]
-    │ callback al terminar
-    ▼
-AudioController emite track_started(track_id)
-    │ Qt.QueuedConnection → hilo principal
-    ▼
+        │ emite: play_stop_requested(track_id)
+        ▼
+MainWindow.on_play_stop(track_id)
+        │ llama a: AudioController.play(track_id, path, volume, loop)
+        ▼
+AudioEngine._open_stream(...)     ← hilo de audio de miniaudio
+        │ stream abierto con éxito
+        │ callback thread-safe vía Qt.QueuedConnection
+        ▼
+AudioController emite: track_started(track_id)
+        │ conectado al hilo principal vía QueuedConnection
+        ▼
 TrackTableModel.set_play_state(track_id, playing=True)
-    │ emite dataChanged
-    ▼
-Vista repinta el botón ■
+        │ emite dataChanged(index)
+        ▼
+[Vista repinta la celda → botón cambia a ■]
 ```
 
 ---
 
-## 9. Motor de Audio: `src/audio/engine.py`
+## 9. Motor de Audio: `src/audio/`
 
-### 9.1 `AudioEngine`
+### 9.1 `AudioEngine` (`engine.py`)
 
-- Instancia única (singleton de aplicación).
-- Internamente mantiene un `dict[str, TrackStream]` (track_id → stream activo).
-- Cada `TrackStream` envuelve un `miniaudio.stream_file` o equivalente.
-- Los streams se ejecutan en hilos gestionados por miniaudio (callback-based o thread-based según la API elegida).
-- El `AudioEngine` **nunca llama a Qt** directamente; notifica al `AudioController` via callbacks thread-safe (p.ej. `QMetaObject.invokeMethod` con `Qt.QueuedConnection`).
+- Instancia única en la aplicación (creada por `AudioController`).
+- Mantiene un diccionario `{track_id: TrackStream}` de streams activos.
+- Cada `TrackStream` encapsula un stream de miniaudio independiente.
+- Los streams corren en **hilos propios gestionados por miniaudio** (API callback-based).
+- `AudioEngine` **nunca llama a Qt directamente**. Notifica al `AudioController` vía callbacks registrados, que a su vez emiten señales Qt con `Qt.QueuedConnection`.
 
-### 9.2 `TrackStream` (`src/audio/stream.py`)
+### 9.2 `TrackStream` (`stream.py`)
 
-Encapsula:
-- El generador/iterator de frames de audio.
-- El volumen actual aplicado frame a frame.
+Encapsula por stream:
+
+- El generador/iterator de frames de audio de miniaudio.
+- El volumen actual, aplicado frame a frame.
 - El estado de loop.
-- Un método `stop()` que cierra el stream de forma segura desde cualquier hilo.
+- Un método `stop()` thread-safe.
 
-### 9.3 Aislamiento de Fallos
+### 9.3 Control de Volumen en Tiempo Real
+
+El volumen se aplica **multiplicando las muestras en el callback de audio**, antes de enviarlas al dispositivo de salida. Esto permite cambios instantáneos sin reiniciar el stream, satisfaciendo RF-06 del PRD.
+
+### 9.4 Aislamiento de Fallos
 
 - Cada apertura de stream está envuelta en `try/except`.
-- Un error en un stream no propaga excepciones al hilo principal.
-- El `AudioController` recibe la notificación de error y la reenvía a la UI via señal.
+- Un error en un stream no lanza excepciones al hilo principal.
+- El error se notifica al `AudioController` via callback, que lo propaga a la GUI como señal `track_error`.
 
 ---
 
@@ -293,56 +325,55 @@ Encapsula:
 
 ### 10.1 `SessionManager`
 
-```python
-def save(tracks: list[Track], path: Path) -> None
-def load(path: Path) -> tuple[list[Track], list[str]]
-    # retorna (tracks_cargadas, errores_de_rutas_no_encontradas)
+Serializa y deserializa exactamente los cuatro campos definidos en el Documento Maestro:
+ruta absoluta, orden, volumen y estado de loop.
+
+```
+save(tracks: list[Track], path: Path) → None
+load(path: Path) → tuple[list[Track], list[str]]
+    # Retorna (tracks_cargados, lista_de_errores_de_rutas_no_encontradas)
 ```
 
-- Serializa a JSON con `json.dumps` (sin dependencias externas).
-- Al cargar, valida la estructura con un schema mínimo antes de procesar.
-- Si `path` no existe: incluye el track con `duration_s=0` y una bandera de error; la UI lo resalta visualmente.
-- El estado de reproducción (`is_playing`) **nunca se serializa**: las sesiones siempre cargan con todos los tracks detenidos.
+- Serializa con `json.dumps` estándar (sin dependencias externas).
+- Valida la estructura mínima del JSON antes de procesar.
+- Si `path` no existe: el `Track` se incluye con bandera de error; la GUI lo resalta visualmente.
+- El campo `is_playing` **no se serializa nunca**: la sesión carga con todo detenido.
 
 ---
 
-## 11. Patrón de Comunicación General (MVC adaptado a Qt)
+## 11. Patrón MVC en Qt — Resumen Visual
 
 ```
-┌──────────┐   setData / signals    ┌──────────────────┐
-│  View    │ ──────────────────────► │  Model           │
-│ (QTable  │                         │ (TrackTable      │
-│  View +  │ ◄────────────────────── │  Model)          │
-│ Delegate)│   dataChanged signal    └────────┬─────────┘
-└──────────┘                                  │ no audio calls
-                                              │
-                                   ┌──────────▼─────────┐
-                                   │  AudioController   │
-                                   │  (Core / Control.) │
-                                   └──────────┬─────────┘
-                                              │ IAudioEngine
-                                   ┌──────────▼─────────┐
-                                   │  AudioEngine       │
-                                   │  (src/audio)       │
-                                   └────────────────────┘
+┌────────────┐  setData/signals  ┌──────────────────┐
+│   View     │ ─────────────────►│     Model        │
+│            │                   │                  │
+│ TableView  │ ◄─────────────── │ TrackTableModel  │
+│ Delegates  │   dataChanged     │ (lista de Track) │
+│ FilterBar  │                   └────────┬─────────┘
+└────────────┘                            │ no llama al audio
+                                          │
+                               ┌──────────▼──────────┐
+                               │  AudioController    │  ← patrón Observador
+                               │  (src/core)         │     vía Signals/Slots
+                               └──────────┬──────────┘
+                                          │ IAudioEngine (Protocol)
+                               ┌──────────▼──────────┐
+                               │  AudioEngine         │
+                               │  (src/audio)         │
+                               │  hilos de miniaudio  │
+                               └─────────────────────┘
 ```
-
-### Reglas estrictas del patrón:
-
-- `src/gui` **no importa** `src/audio` — jamás.
-- `src/audio` **no importa** `src/gui` — jamás.
-- `src/core` es el único módulo que puede importar de ambos lados, y lo hace a través de la interfaz `IAudioEngine` (`src/core/interfaces.py`), lo que permite mockear el engine en tests.
 
 ---
 
-## 12. Preparación para V2 (mini-DAW)
+## 12. Preparación para Fase 2 (Línea de Tiempo)
 
-Las siguientes decisiones de diseño en V1 facilitan la evolución a V2 sin reescrituras:
+Las siguientes decisiones de V1 facilitan la evolución sin reescrituras:
 
-| Decisión V1 | Beneficio en V2 |
+| Decisión en V1 | Beneficio en Fase 2 |
 |---|---|
-| `Track` con `id` UUID inmutable | La línea de tiempo referencia tracks por id, no por posición |
-| `AudioController` como fachada desacoplada | En V2, se extiende con métodos `seek()`, `schedule()` sin cambiar la GUI |
-| `AudioEngine` independiente de Qt | Se puede portar a C++ o sustituir por JACK sin tocar la GUI |
-| `QAbstractTableModel` puro (sin lógica de negocio) | En V2, el mismo modelo se puede usar en una vista de timeline |
-| `SessionManager` con versión en el JSON | Permite migrations de formato entre V1 y V2 |
+| `Track` con `id` UUID inmutable | La línea de tiempo referencia tracks por id, no por posición en la lista |
+| `AudioController` como fachada | En Fase 2 se extiende con `seek()`, `schedule_at(t)` sin cambiar la GUI |
+| `AudioEngine` independiente de Qt | Puede portarse a C++ o sustituirse por JACK sin tocar la GUI |
+| `QAbstractTableModel` puro | En Fase 2 el mismo modelo de datos puede usarse en una vista de timeline |
+| `SessionManager` con campo `version` | Permite migrations de formato entre V1 y V2 sin romper sesiones antiguas |

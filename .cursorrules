@@ -1,72 +1,73 @@
-# StageCue — Cursor Rules
-# Estas reglas rigen el desarrollo del proyecto. Son invariantes, no sugerencias.
+# TuxCue — Cursor Rules
+# Reglas de desarrollo derivadas del Documento Maestro de Especificaciones.
+# Son invariantes, no sugerencias.
 
 ## 1. Spec-Driven Development
 
-- Antes de implementar cualquier feature o cambio de comportamiento, la especificación en `docs/` debe reflejarlo.
+- Antes de implementar cualquier feature o cambio de comportamiento, la spec en `docs/` debe reflejarlo.
 - Si un requisito no está en `docs/01_PRD.md`, no existe.
 - Si una decisión arquitectónica no está en `docs/02_ARCHITECTURE.md`, no se implementa.
-- El orden es: actualizar spec → implementar → testear. Nunca al revés.
+- Orden obligatorio: actualizar spec → implementar → testear. Nunca al revés.
 
-## 2. Estructura y Desacoplamiento
+## 2. Desacoplamiento Estricto GUI / Audio
 
-- `src/gui` NUNCA importa de `src/audio`. Esta regla no tiene excepciones.
-- `src/audio` NUNCA importa de `src/gui`. Esta regla no tiene excepciones.
+- `src/gui` NUNCA importa de `src/audio`. Sin excepciones.
+- `src/audio` NUNCA importa de `src/gui`. Sin excepciones.
 - `src/core` es el único módulo que puede importar de ambos lados.
 - Toda comunicación GUI ↔ Audio pasa por `AudioController` en `src/core/audio_controller.py`.
-- Si necesitas que la GUI sepa algo del estado del audio, usa una señal Qt emitida por `AudioController`.
+- El patrón de comunicación es el Observador de Qt: Signals/Slots con `Qt.QueuedConnection` para cruzar hilos.
 
-## 3. Threading y Audio
+## 3. El Audio No Corre en el Hilo Principal
 
 - No asumas que el audio se reproduce en el hilo principal. Nunca lo hace.
 - No llames a ningún método de Qt desde el hilo de audio directamente.
-- Usa `QMetaObject.invokeMethod` con `Qt.QueuedConnection` o señales para cruzar hilos.
-- El hilo principal de Qt es solo para la UI. Ninguna operación de I/O bloqueante ocurre en él.
+- Usa `QMetaObject.invokeMethod` con `Qt.QueuedConnection` o señales Qt para cruzar hilos.
+- El hilo principal de Qt es exclusivamente para la UI.
 
 ## 4. Funciones Cortas y Responsabilidad Única
 
-- Las funciones no deben superar 30 líneas de código. Si lo hacen, extrae subfunciones.
+- Las funciones no superan 30 líneas de código. Si lo hacen, extrae subfunciones.
 - Cada clase tiene una sola responsabilidad claramente definida.
-- Los métodos que hacen más de una cosa son un bug de diseño, no solo de implementación.
+- Los métodos que hacen más de una cosa son un bug de diseño.
 
-## 5. Tipado Estático
+## 5. Tipado Estático Completo
 
 - Todo el código Python tiene type hints completos.
-- No uses `Any` a menos que sea absolutamente inevitable (y si lo usas, deja un comentario explicando por qué).
+- No uses `Any` salvo que sea absolutamente inevitable (y si lo usas, explica el porqué con un comentario).
 - mypy en modo estricto no debe reportar errores.
-- Los `Protocol` y `ABC` de `src/core/interfaces.py` deben implementarse completamente en las clases concretas.
+- Los `Protocol` de `src/core/interfaces.py` deben implementarse completamente en las clases concretas.
 
-## 6. Tests Primero (cuando aplique)
+## 6. Tests
 
 - Las funciones de `src/core` y `src/audio` tienen tests en `tests/`.
-- Los tests de GUI usan `pytest-qt` y mocks del `AudioEngine`.
+- Los tests de GUI usan `pytest-qt` y mocks del `AudioEngine` via `src/core/interfaces.py`.
 - Un cambio que rompe un test existente sin modificar el test es un bug.
 - Nunca comentar un test que falla como solución.
 
-## 7. Sin Magia ni Abstracciones Prematuras
+## 7. Sin Abstracciones Prematuras
 
-- No crees clases base abstractas que solo tienen una implementación concreta, salvo en `src/core/interfaces.py` (donde son parte del contrato de diseño).
-- No añadas parámetros a funciones "para uso futuro".
-- No implementes V2 features en V1. El roadmap existe para algo.
+- No crees clases base abstractas que solo tienen una implementación, salvo en `src/core/interfaces.py`.
+- No añadas parámetros "para uso futuro".
+- No implementes features de Fase 2 en Fase 1. El roadmap existe para algo.
 
 ## 8. Convenciones de Nomenclatura
 
 - Clases: `PascalCase`.
 - Funciones y variables: `snake_case`.
 - Constantes de módulo: `UPPER_SNAKE_CASE`.
-- Señales Qt: `snake_case` (p.ej. `track_started`, `play_stop_requested`).
-- Archivos: `snake_case.py`.
-- Los nombres de columnas de la tabla son `Column.NAME`, `Column.PLAY`, etc. (IntEnum en `track_table_model.py`).
+- Señales Qt: `snake_case` (ej. `track_started`, `play_stop_requested`).
+- Ficheros: `snake_case.py`.
+- Columnas de la tabla: `Column.NAME`, `Column.PLAY`, etc. (IntEnum en `track_table_model.py`).
 
 ## 9. Comentarios
 
 - No comentes qué hace el código. Los nombres deben ser suficientes.
-- Comenta ÚNICAMENTE el porqué cuando no es obvio: una restricción de la API de miniaudio, un workaround para un bug de Qt, una invariante no obvia.
-- No dejes `TODO:` sin un issue/ticket asociado.
+- Comenta ÚNICAMENTE el porqué cuando no es obvio: restricción de la API de miniaudio, workaround de un bug de Qt, invariante no obvia.
+- No dejes `TODO:` sin un issue asociado.
 
 ## 10. Gestión de Errores
 
-- Los errores de audio se propagan como señales Qt, nunca como excepciones silenciosas ni prints.
+- Los errores de audio se propagan como señales Qt (`track_error`), nunca como excepciones silenciosas.
 - Los errores de I/O en `SessionManager` se reportan al llamador; no se capturan y ocultan.
 - No uses `except Exception` sin re-lanzar o loggear de forma estructurada.
-- El logger de la aplicación es `logging.getLogger("stagecue")`. No uses `print()` para diagnóstico.
+- El logger de la aplicación es `logging.getLogger("tuxcue")`. No uses `print()` para diagnóstico.
