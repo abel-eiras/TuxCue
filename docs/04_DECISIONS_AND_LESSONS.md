@@ -156,3 +156,29 @@ tests (51/51 passing). Se suprimirá si PySide6 publica un fix de bindings.
 **Lección:** En PySide6, las `DeprecationWarning` de los bindings no siempre coinciden con
 las deprecaciones reales de Qt. Verificar siempre en la documentación oficial de Qt6 antes de
 migrar a una alternativa.
+
+---
+
+## Integración — SessionManager
+
+### [2026-05-11] Raw string check en JSON contaminated by pytest tmp_path name
+
+**Contexto:** Test `test_is_playing_never_serialized` verificaba que `"is_playing"` no
+apareciera en el JSON serializado usando `assert "is_playing" not in raw` sobre el texto
+completo del fichero.
+
+**Problema:** pytest construye directorios temporales cuyo nombre deriva del id del test:
+`/tmp/pytest-of-root/pytest-8/test_is_playing_never_serializ0/sound.wav`. El fragmento
+`is_playing` queda embebido en el campo `"path"` del JSON, haciendo fallar la aserción
+aunque el comportamiento del código es correcto.
+
+**Causa raíz:** El test usaba una comprobación de substring sobre el JSON completo en lugar
+de inspeccionar la estructura de datos parseada. Una ruta de fichero que contiene el string
+buscado contamina el resultado.
+
+**Resolución:** Se reemplazó la comprobación raw por una que parsea el JSON y comprueba que
+ninguna clave del diccionario de cada track sea `"is_playing"`.
+
+**Lección:** Nunca verificar la ausencia de un string en un JSON serializado mediante
+búsqueda de substring en el texto crudo; el valor de algún campo (p.ej. una ruta de fichero)
+puede contenerlo por coincidencia. Parsear y comprobar la estructura.
