@@ -1,0 +1,203 @@
+from __future__ import annotations
+
+from enum import IntEnum
+from typing import Any
+
+from PySide6.QtCore import (
+    QAbstractTableModel,
+    QByteArray,
+    QMimeData,
+    QModelIndex,
+    QPersistentModelIndex,
+    Qt,
+)
+
+from src.core.track import Track
+
+
+class Column(IntEnum):
+    NAME = 0
+    DURATION = 1
+    PLAY = 2
+    LOOP = 3
+    VOLUME = 4
+
+
+class TrackRole:
+    PlayState = Qt.UserRole + 1  # bool
+    LoopState = Qt.UserRole + 2  # bool
+    Volume = Qt.UserRole + 3     # float
+    TrackId = Qt.UserRole + 4    # str
+    DurationS = Qt.UserRole + 5  # float
+
+
+_MIME_TYPE = "application/x-tuxcue-row"
+
+_HEADERS = {
+    Column.NAME: "Name",
+    Column.DURATION: "Duration",
+    Column.PLAY: "Play",
+    Column.LOOP: "Loop",
+    Column.VOLUME: "Volume",
+}
+
+
+def _fmt_duration(seconds: float) -> str:
+    m, s = divmod(int(seconds), 60)
+    return f"{m}:{s:02d}"
+
+
+class TrackTableModel(QAbstractTableModel):
+    def __init__(self, parent: object | None = None) -> None:
+        super().__init__(parent)
+        self._tracks: list[Track] = []
+        self._play_states: dict[str, bool] = {}
+
+    # ------------------------------------------------------------------
+    # Required QAbstractTableModel overrides
+    # ------------------------------------------------------------------
+
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
+        return 0 if parent.isValid() else len(self._tracks)
+
+    def columnCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
+        return 0 if parent.isValid() else len(Column)
+
+    def headerData(
+        self,
+        section: int,
+        orientation: Qt.Orientation,
+        role: int = Qt.DisplayRole,
+    ) -> Any:
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            return _HEADERS.get(Column(section), "")
+        return None
+
+    def data(
+        self,
+        index: QModelIndex | QPersistentModelIndex,
+        role: int = Qt.DisplayRole,
+    ) -> Any:
+        if not index.isValid() or not (0 <= index.row() < len(self._tracks)):
+            return None
+        track = self._tracks[index.row()]
+        col = index.column()
+        return self._resolve_data(track, col, role)
+
+    def _resolve_data(self, track: Track, col: int, role: int) -> Any:
+        if role == Qt.DisplayRole:
+            return self._display_data(track, col)
+        if role == Qt.EditRole and col == Column.NAME:
+            return track.name
+        if role == TrackRole.PlayState:
+            return self._play_states.get(track.id, False)
+        if role == TrackRole.LoopState:
+            return track.loop
+        if role == TrackRole.Volume:
+            return track.volume
+        if role == TrackRole.TrackId:
+            return track.id
+        if role == TrackRole.DurationS:
+            return track.duration_s
+        return None
+
+    def _display_data(self, track: Track, col: int) -> Any:
+        if col == Column.NAME:
+            return track.name
+        if col == Column.DURATION:
+            return _fmt_duration(track.duration_s)
+        if col == Column.PLAY:
+            return "■" if self._play_states.get(track.id, False) else "▶"
+        if col == Column.LOOP:
+            return "↺" if track.loop else ""
+        if col == Column.VOLUME:
+            return f"{int(track.volume * 100)}%"
+        return None
+
+    def setData(
+        self,
+        index: QModelIndex | QPersistentModelIndex,
+        value: Any,
+        role: int = Qt.EditRole,
+    ) -> bool:
+        if not index.isValid() or index.column() != Column.NAME or role != Qt.EditRole:
+            return False
+        self._tracks[index.row()].name = str(value)
+        self.dataChanged.emit(index, index, [Qt.DisplayRole, Qt.EditRole])
+        return True
+
+    def flags(self, index: QModelIndex | QPersistentModelIndex) -> Qt.ItemFlags:
+        base = Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+        if not index.isValid():
+            return Qt.ItemIsDropEnabled
+        if index.column() == Column.NAME:
+            return base | Qt.ItemIsEditable
+        return base
+
+    # ------------------------------------------------------------------
+    # Public mutation API
+    # ------------------------------------------------------------------
+
+    def add_track(self, track: Track) -> None:
+        row = len(self._tracks)
+        self.beginInsertRows(QModelIndex(), row, row)
+        self._tracks.append(track)
+        self.endInsertRows()
+
+    def remove_track(self, track_id: str) -> None:
+        for i, t in enumerate(self._tracks):
+            if t.id == track_id:
+                self.beginRemoveRows(QModelIndex(), i, i)
+                self._tracks.pop(i)
+                self._play_states.pop(track_id, None)
+                self.endRemoveRows()
+                return
+
+    def set_play_state(self, track_id: str, playing: bool) -> None:
+        self._play_states[track_id] = playing
+        for row, track in enumerate(self._tracks):
+            if track.id == track_id:
+                tl = self.index(row, Column.PLAY)
+                br = self.index(row, Column.PLAY)
+                self.dataChanged.emit(tl, br, [Qt.DisplayRole, TrackRole.PlayState])
+                return
+
+    # ------------------------------------------------------------------
+    # Drag & drop — internal row reorder only
+    # ------------------------------------------------------------------
+
+    def supportedDragActions(self) -> Qt.DropActions:
+        return Qt.MoveAction
+
+    def supportedDropActions(self) -> Qt.DropActions:
+        return Qt.MoveAction
+
+    def mimeTypes(self) -> list[str]:
+        return [_MIME_TYPE]
+
+    def mimeData(self, indexes: list[QModelIndex]) -> QMimeData:
+        rows = sorted({i.row() for i in indexes if i.isValid()})
+        data = QMimeData()
+        data.setData(_MIME_TYPE, QByteArray(str(rows[0]).encode()))
+        return data
+
+    def dropMimeData(
+        self,
+        data: QMimeData,
+        action: Qt.DropAction,
+        row: int,
+        column: int,
+        parent: QModelIndex | QPersistentModelIndex,
+    ) -> bool:
+        if action != Qt.MoveAction or not data.hasFormat(_MIME_TYPE):
+            return False
+        src_row = int(bytes(data.data(_MIME_TYPE)).decode())
+        dest_row = row if row >= 0 else len(self._tracks)
+        if src_row == dest_row or src_row == dest_row - 1:
+            return False
+        track = self._tracks.pop(src_row)
+        # Adjust destination after removal
+        insert_at = dest_row if dest_row < src_row else dest_row - 1
+        self._tracks.insert(insert_at, track)
+        self.layoutChanged.emit()
+        return True
