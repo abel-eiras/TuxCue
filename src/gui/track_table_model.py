@@ -120,11 +120,26 @@ class TrackTableModel(QAbstractTableModel):
         value: Any,
         role: int = Qt.EditRole,
     ) -> bool:
-        if not index.isValid() or index.column() != Column.NAME or role != Qt.EditRole:
+        if not index.isValid():
             return False
-        self._tracks[index.row()].name = str(value)
-        self.dataChanged.emit(index, index, [Qt.DisplayRole, Qt.EditRole])
-        return True
+        if role == Qt.EditRole and index.column() == Column.NAME:
+            self._tracks[index.row()].name = str(value)
+            self.dataChanged.emit(index, index, [Qt.DisplayRole, Qt.EditRole])
+            return True
+        if role == TrackRole.Volume and index.column() == Column.VOLUME:
+            self._tracks[index.row()].volume = max(0.0, min(1.0, float(value)))
+            self.dataChanged.emit(index, index, [Qt.DisplayRole, TrackRole.Volume])
+            return True
+        return False
+
+    def get_track(self, track_id: str) -> Track | None:
+        for t in self._tracks:
+            if t.id == track_id:
+                return t
+        return None
+
+    def all_track_ids(self) -> list[str]:
+        return [t.id for t in self._tracks]
 
     def flags(self, index: QModelIndex | QPersistentModelIndex) -> Qt.ItemFlags:
         base = Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
