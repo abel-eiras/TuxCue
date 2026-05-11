@@ -131,3 +131,28 @@ eliminar el `next(gen)` de `start()` y ajustar la inicialización del generador.
 
 **Lección:** Los tests hardware-free son necesarios pero no suficientes para el backend de audio.
 Incluir al menos un test de integración con un fichero WAV real en el checklist de Fase 2.
+
+---
+
+## Rama B — Interfaz Gráfica
+
+### [2026-05-11] DeprecationWarning de PySide6 6.11 para invalidateFilter() / invalidateRowsFilter()
+
+**Contexto:** Al implementar `TrackFilterProxyModel.set_duration_segment()`, se llamó a
+`self.invalidateFilter()` para refrescar el proxy tras cambiar el segmento de duración.
+
+**Problema:** PySide6 6.11.0 emite `DeprecationWarning` tanto para `invalidateFilter()` como
+para `invalidateRowsFilter()`, aunque ambos métodos siguen siendo parte de la API pública de Qt6.
+
+**Causa raíz:** Regresión en los bindings Python de PySide6 6.11 — los wrappers C++ de estos
+métodos están marcados con el decorador de deprecación de Qt aunque la función subyacente no
+está eliminada. El método `invalidate()` (QObject slot) también está disponible pero tiene
+semántica ligeramente distinta (invalida también el orden, no solo el filtro).
+
+**Resolución:** Se mantiene `invalidateFilter()` porque su semántica es la correcta para
+refrescar solo el filtro. La advertencia es cosmética y no afecta el comportamiento ni los
+tests (51/51 passing). Se suprimirá si PySide6 publica un fix de bindings.
+
+**Lección:** En PySide6, las `DeprecationWarning` de los bindings no siempre coinciden con
+las deprecaciones reales de Qt. Verificar siempre en la documentación oficial de Qt6 antes de
+migrar a una alternativa.
