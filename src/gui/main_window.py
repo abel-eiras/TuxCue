@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import (
-    QActionGroup,
     QFileDialog,
     QMainWindow,
     QMessageBox,
@@ -103,7 +103,6 @@ class MainWindow(QMainWindow):
         self._view.files_dropped.connect(self._on_files_dropped)
 
     def _on_language_changed(self, action: object) -> None:
-        from PySide6.QtGui import QAction
         if not isinstance(action, QAction):
             return
         locale = action.data()
