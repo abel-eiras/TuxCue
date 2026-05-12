@@ -119,8 +119,11 @@ class MainWindow(QMainWindow):
         QMessageBox.warning(self, "Playback Error", message)
 
     def _on_files_dropped(self, paths: list[Path]) -> None:
+        from src.audio.probe import probe_duration
         for p in paths:
-            self._model.add_track(Track.from_path(p))
+            track = Track.from_path(p)
+            track.duration_s = probe_duration(p)
+            self._model.add_track(track)
 
     def _on_new_session(self) -> None:
         if self._model.rowCount() > 0:
@@ -138,7 +141,7 @@ class MainWindow(QMainWindow):
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open Session", "", "TuxCue Sessions (*.json)"
+            self, "Open Session", "", "TuxCue Sessions (*.tuxcue.json)"
         )
         if not path:
             return
@@ -146,10 +149,12 @@ class MainWindow(QMainWindow):
 
     def _load_session(self, path: Path) -> None:
         from src.core import session as session_manager
+        from src.audio.probe import probe_duration
         tracks, errors = session_manager.load(path)
         for tid in list(self._model.all_track_ids()):
             self._model.remove_track(tid)
         for track in tracks:
+            track.duration_s = probe_duration(track.path)
             self._model.add_track(track)
         self._session_path = path
         if errors:
@@ -162,12 +167,15 @@ class MainWindow(QMainWindow):
             self._save_to(self._session_path)
 
     def _on_save_as(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Save Session", "", "TuxCue Sessions (*.json)"
-        )
-        if not path:
+        dialog = QFileDialog(self, "Save Session", "", "TuxCue Sessions (*.tuxcue.json)")
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setDefaultSuffix("tuxcue.json")
+        if not dialog.exec():
             return
-        self._session_path = Path(path)
+        paths = dialog.selectedFiles()
+        if not paths:
+            return
+        self._session_path = Path(paths[0])
         self._save_to(self._session_path)
 
     def _save_to(self, path: Path) -> None:
