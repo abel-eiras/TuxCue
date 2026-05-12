@@ -13,7 +13,7 @@ Un reproductor de audio para regidores y técnicos de sonido en producciones tea
 
 ## 🎬 Por qué existe esto
 
-Si alguna vez has intentado usar VLC, Audacity o cualquier reproductor convencional para manejar los efectos de sonido de una obra de teatro durante una función, sabes lo que es sufrir. Cuando el director te pide "música de entrada, trueno a los 30 segundos, y que el ambiente de lluvia no pare" al mismo tiempo, no hay forma elegante de hacerlo con un reproductor normal.
+Si alguna vez has intentado usar VLC, Audacity o cualquier reproductor convencional para manejar los efectos de sonido de una obra de teatro durante una función, sabes lo que es sufrir. Cuando el director te pide “música de entrada, trueno a los 30 segundos, y que el ambiente de lluvia no pare” al mismo tiempo, no hay forma elegante de hacerlo con un reproductor normal.
 
 TuxCue nace de esa necesidad: un cartwall polifónico donde cada pista es independiente, puedes disparar y parar lo que quieras cuando quieras, ajustar el volumen en tiempo real sin cortes y organizar los cues exactamente como aparecen en el guion.
 
@@ -67,13 +67,38 @@ python main.py
 
 ## 🎛️ Cómo usarlo
 
-1. **Carga tus pistas** — arrástralas desde el explorador de archivos a la tabla, o usa el menú File
+1. **Carga tus pistas** — arrástralas desde el explorador de archivos a la tabla, o usa el menú Archivo
 2. **Renombra** — doble clic en el nombre para que coincida con tu guion
 3. **Ajusta volúmenes** — mueve el slider antes o durante la función
 4. **Activa Loop** en las pistas de ambiente que deban repetirse
 5. **Reordena** — arrastra las filas para que sigan el orden del guion
 6. **Guarda la sesión** — `Ctrl+S` → `funcion_sabado_noche.tuxcue.json`
 7. En la siguiente función: `Ctrl+O`, selecciona el fichero y todo está como lo dejaste
+
+---
+
+## ⚙️ Configuración
+
+TuxCue guarda sus preferencias en `~/.config/tuxcue/config.json`. Se crea automáticamente la primera vez que cambias algún ajuste desde la app.
+
+### Idioma
+
+Disponible desde el menú **Configuración → Idioma**. Los cambios se aplican al reiniciar.
+
+| Código | Idioma   |
+|--------|----------|
+| `es`   | Español  |
+| `gl`   | Galego   |
+| `en`   | English  |
+
+El idioma por defecto es **Español**. Para cambiarlo manualmente sin abrir la app:
+
+```json
+// ~/.config/tuxcue/config.json
+{
+  "language": "gl"
+}
+```
 
 ---
 
@@ -84,7 +109,9 @@ TuxCue/
 ├── src/
 │   ├── core/          # Track, AudioController, interfaces, sesiones
 │   ├── audio/         # AudioEngine (miniaudio, sin Qt), probe_duration
-│   └── gui/           # MainWindow, tabla, delegates, filtros
+│   ├── gui/           # MainWindow, tabla, delegates, filtros
+│   ├── i18n/          # Traducciones (es, gl, en) y función tr()
+│   └── config.py      # Preferencias persistentes (~/.config/tuxcue/)
 ├── tests/             # 120 tests (pytest, offscreen)
 ├── docs/              # PRD, arquitectura, stack, decisiones y lecciones
 ├── main.py
