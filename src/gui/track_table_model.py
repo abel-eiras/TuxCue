@@ -11,6 +11,7 @@ from PySide6.QtCore import (
     QPersistentModelIndex,
     Qt,
 )
+from PySide6.QtGui import QColor
 
 from src.core.track import Track
 
@@ -29,6 +30,7 @@ class TrackRole:
     Volume = Qt.UserRole + 3     # float
     TrackId = Qt.UserRole + 4    # str
     DurationS = Qt.UserRole + 5  # float
+    MissingFile = Qt.UserRole + 6  # bool
 
 
 _MIME_TYPE = "application/x-tuxcue-row"
@@ -89,6 +91,10 @@ class TrackTableModel(QAbstractTableModel):
             return self._display_data(track, col)
         if role == Qt.EditRole and col == Column.NAME:
             return track.name
+        if role == Qt.ForegroundRole and track.missing_file:
+            return QColor("#cc4444")
+        if role == Qt.ToolTipRole and track.missing_file:
+            return f"File not found: {track.path}"
         if role == TrackRole.PlayState:
             return self._play_states.get(track.id, False)
         if role == TrackRole.LoopState:
@@ -99,6 +105,8 @@ class TrackTableModel(QAbstractTableModel):
             return track.id
         if role == TrackRole.DurationS:
             return track.duration_s
+        if role == TrackRole.MissingFile:
+            return track.missing_file
         return None
 
     def _display_data(self, track: Track, col: int) -> Any:
@@ -210,9 +218,10 @@ class TrackTableModel(QAbstractTableModel):
         dest_row = row if row >= 0 else len(self._tracks)
         if src_row == dest_row or src_row == dest_row - 1:
             return False
+        if not self.beginMoveRows(QModelIndex(), src_row, src_row, QModelIndex(), dest_row):
+            return False
         track = self._tracks.pop(src_row)
-        # Adjust destination after removal
         insert_at = dest_row if dest_row < src_row else dest_row - 1
         self._tracks.insert(insert_at, track)
-        self.layoutChanged.emit()
+        self.endMoveRows()
         return True

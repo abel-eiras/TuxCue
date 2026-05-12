@@ -275,18 +275,18 @@ class TestDragAndDrop:
         result = model.dropMimeData(mime, Qt.MoveAction, 1, 0, QModelIndex())
         assert result is False
 
-    def test_layout_changed_emitted_on_drop(self, model: "TrackTableModel") -> None:
+    def test_rows_moved_emitted_on_drop(self, model: "TrackTableModel") -> None:
         from src.gui.track_table_model import Column
 
         model.add_track(_make_track("A"))
         model.add_track(_make_track("B"))
-        layout_signals: list[int] = []
-        model.layoutChanged.connect(lambda: layout_signals.append(1))
+        move_signals: list[int] = []
+        model.rowsMoved.connect(lambda *_: move_signals.append(1))
 
         indexes = [model.index(0, Column.NAME)]
         mime = model.mimeData(indexes)
         model.dropMimeData(mime, Qt.MoveAction, 2, 0, QModelIndex())
-        assert layout_signals, "layoutChanged must fire after a successful drop"
+        assert move_signals, "rowsMoved must fire after a successful drop"
 
 
 class TestFlags:
@@ -315,3 +315,35 @@ class TestFlags:
     def test_invalid_index_returns_drop_enabled_only(self, model: "TrackTableModel") -> None:
         flags = model.flags(QModelIndex())
         assert flags & Qt.ItemIsDropEnabled
+
+
+class TestMissingFile:
+    def test_missing_file_row_has_red_foreground(self, model: "TrackTableModel") -> None:
+        from src.core.track import Track
+        from src.gui.track_table_model import Column
+
+        ghost = Track(
+            id="g1", name="ghost", path=Path("/nonexistent/ghost.wav"),
+            missing_file=True,
+        )
+        model.add_track(ghost)
+        color = model.data(model.index(0, Column.NAME), Qt.ForegroundRole)
+        assert color is not None, "Missing-file rows must return a ForegroundRole color"
+
+    def test_normal_file_row_has_no_foreground_override(self, model: "TrackTableModel") -> None:
+        from src.gui.track_table_model import Column
+
+        model.add_track(_make_track("A"))
+        color = model.data(model.index(0, Column.NAME), Qt.ForegroundRole)
+        assert color is None
+
+    def test_missing_file_role_returns_true(self, model: "TrackTableModel") -> None:
+        from src.core.track import Track
+        from src.gui.track_table_model import Column, TrackRole
+
+        ghost = Track(
+            id="g2", name="ghost", path=Path("/nonexistent/ghost.wav"),
+            missing_file=True,
+        )
+        model.add_track(ghost)
+        assert model.data(model.index(0, Column.NAME), TrackRole.MissingFile) is True
