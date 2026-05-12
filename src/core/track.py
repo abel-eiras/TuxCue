@@ -15,6 +15,7 @@ class Track:
     volume: float = 0.8
     loop: bool = False
     duration_s: float = 0.0
+    missing_file: bool = False
 
     def __post_init__(self) -> None:
         self.volume = max(0.0, min(1.0, self.volume))

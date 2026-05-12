@@ -102,8 +102,16 @@ class TestLoad:
         loaded, errors = load(out)
         assert len(loaded) == 1
         assert loaded[0].id == "g-id"
+        assert loaded[0].missing_file is True
         assert len(errors) == 1
         assert "ghost.wav" in errors[0]
+
+    def test_existing_file_track_missing_file_false(self, tmp_path: Path) -> None:
+        track = _make_track(tmp_path, name="present")
+        out = tmp_path / "session.tuxcue.json"
+        save([track], out)
+        loaded, _ = load(out)
+        assert loaded[0].missing_file is False
 
     def test_existing_file_track_has_no_error(self, tmp_path: Path) -> None:
         track = _make_track(tmp_path, name="present")
