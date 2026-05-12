@@ -110,36 +110,19 @@ class VolumeSliderDelegate(QStyledItemDelegate):
         opt.activeSubControls = QStyle.SC_None
         QApplication.style().drawComplexControl(QStyle.CC_Slider, opt, painter)
 
-    def createEditor(
+    def editorEvent(
         self,
-        parent: QWidget,
+        event: Any,
+        model: Any,
         option: Any,
         index: QModelIndex | QPersistentModelIndex,
-    ) -> QSlider:
-        slider = QSlider(Qt.Horizontal, parent)
-        slider.setRange(0, 100)
-        slider.valueChanged.connect(lambda v: self._commit(slider))
-        return slider
-
-    def _commit(self, slider: QSlider) -> None:
-        self.commitData.emit(slider)
-
-    def setEditorData(
-        self,
-        editor: QWidget,
-        index: QModelIndex | QPersistentModelIndex,
-    ) -> None:
-        volume: float = index.data(TrackRole.Volume) or 0.0
-        slider: QSlider = editor  # type: ignore[assignment]
-        slider.blockSignals(True)
-        slider.setValue(int(volume * 100))
-        slider.blockSignals(False)
-
-    def setModelData(
-        self,
-        editor: QWidget,
-        model: Any,
-        index: QModelIndex | QPersistentModelIndex,
-    ) -> None:
-        slider: QSlider = editor  # type: ignore[assignment]
-        model.setData(index, slider.value() / 100.0, TrackRole.Volume)
+    ) -> bool:
+        from PySide6.QtCore import QEvent
+        if event.type() in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove):
+            if event.buttons() & Qt.MouseButton.LeftButton:
+                rect = option.rect
+                x = max(0, min(int(event.position().x()) - rect.left(), rect.width()))
+                volume = x / rect.width() if rect.width() > 0 else 0.0
+                model.setData(index, volume, TrackRole.Volume)
+                return True
+        return False
