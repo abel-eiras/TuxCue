@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 try:
-    from PySide6.QtCore import QRegularExpression, Qt
+    from PySide6.QtCore import QRegularExpression
     from PySide6.QtWidgets import QApplication
 
     _qt_available = True
@@ -26,12 +26,12 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.fixture(scope="session")
-def qapp() -> "QApplication":
+def qapp() -> QApplication:
     app = QApplication.instance() or QApplication(sys.argv)
     return app  # type: ignore[return-value]
 
 
-def _make_track(name: str, duration_s: float = 30.0) -> "Track":
+def _make_track(name: str, duration_s: float = 30.0) -> Track:
     from src.core.track import Track
 
     return Track(
@@ -43,14 +43,14 @@ def _make_track(name: str, duration_s: float = 30.0) -> "Track":
 
 
 @pytest.fixture
-def source_model(qapp: "QApplication") -> "TrackTableModel":
+def source_model(qapp: QApplication) -> TrackTableModel:
     from src.gui.track_table_model import TrackTableModel
 
     return TrackTableModel()
 
 
 @pytest.fixture
-def proxy(source_model: "TrackTableModel") -> "TrackFilterProxyModel":
+def proxy(source_model: TrackTableModel) -> TrackFilterProxyModel:
     from src.gui.proxy_model import TrackFilterProxyModel
 
     p = TrackFilterProxyModel()
@@ -60,21 +60,25 @@ def proxy(source_model: "TrackTableModel") -> "TrackFilterProxyModel":
 
 class TestTextFilter:
     def test_matching_track_is_visible(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         source_model.add_track(_make_track("RainLoop"))
-        proxy.setFilterRegularExpression(QRegularExpression("rain", QRegularExpression.CaseInsensitiveOption))
+        proxy.setFilterRegularExpression(
+            QRegularExpression("rain", QRegularExpression.CaseInsensitiveOption)
+        )
         assert proxy.rowCount() == 1
 
     def test_nonmatching_track_is_hidden(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         source_model.add_track(_make_track("Thunder"))
-        proxy.setFilterRegularExpression(QRegularExpression("rain", QRegularExpression.CaseInsensitiveOption))
+        proxy.setFilterRegularExpression(
+            QRegularExpression("rain", QRegularExpression.CaseInsensitiveOption)
+        )
         assert proxy.rowCount() == 0
 
     def test_empty_filter_shows_all(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         source_model.add_track(_make_track("A"))
         source_model.add_track(_make_track("B"))
@@ -82,7 +86,7 @@ class TestTextFilter:
         assert proxy.rowCount() == 2
 
     def test_filter_is_case_insensitive(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         source_model.add_track(_make_track("THUNDER"))
         proxy.setFilterRegularExpression(
@@ -91,25 +95,29 @@ class TestTextFilter:
         assert proxy.rowCount() == 1
 
     def test_partial_match_passes(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         source_model.add_track(_make_track("DrumLoop_01"))
-        proxy.setFilterRegularExpression(QRegularExpression("drum", QRegularExpression.CaseInsensitiveOption))
+        proxy.setFilterRegularExpression(
+            QRegularExpression("drum", QRegularExpression.CaseInsensitiveOption)
+        )
         assert proxy.rowCount() == 1
 
     def test_multiple_tracks_partial_filter(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         source_model.add_track(_make_track("DrumLoop"))
         source_model.add_track(_make_track("BassLine"))
         source_model.add_track(_make_track("DrumFill"))
-        proxy.setFilterRegularExpression(QRegularExpression("drum", QRegularExpression.CaseInsensitiveOption))
+        proxy.setFilterRegularExpression(
+            QRegularExpression("drum", QRegularExpression.CaseInsensitiveOption)
+        )
         assert proxy.rowCount() == 2
 
 
 class TestDurationFilter:
     def test_all_segment_shows_everything(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -119,7 +127,7 @@ class TestDurationFilter:
         assert proxy.rowCount() == 2
 
     def test_under_30s_shows_short_track(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -128,7 +136,7 @@ class TestDurationFilter:
         assert proxy.rowCount() == 1
 
     def test_under_30s_hides_60s_track(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -137,7 +145,7 @@ class TestDurationFilter:
         assert proxy.rowCount() == 0
 
     def test_under_30s_boundary_29s_visible(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -146,7 +154,7 @@ class TestDurationFilter:
         assert proxy.rowCount() == 1
 
     def test_under_30s_boundary_30s_hidden(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -155,7 +163,7 @@ class TestDurationFilter:
         assert proxy.rowCount() == 0
 
     def test_s30_to_2m_includes_30s(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -164,7 +172,7 @@ class TestDurationFilter:
         assert proxy.rowCount() == 1
 
     def test_s30_to_2m_excludes_120s(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -173,7 +181,7 @@ class TestDurationFilter:
         assert proxy.rowCount() == 0
 
     def test_m2_to_5m_range(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -183,7 +191,7 @@ class TestDurationFilter:
         assert proxy.rowCount() == 1
 
     def test_over_5m_shows_long_tracks(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -193,7 +201,7 @@ class TestDurationFilter:
         assert proxy.rowCount() == 1
 
     def test_switching_segments_updates_filter(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -208,7 +216,7 @@ class TestDurationFilter:
 
 class TestCombinedFilters:
     def test_text_and_duration_both_must_pass(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -226,7 +234,7 @@ class TestCombinedFilters:
         assert proxy.rowCount() == 1
 
     def test_text_match_but_duration_mismatch_hidden(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -238,7 +246,7 @@ class TestCombinedFilters:
         assert proxy.rowCount() == 0
 
     def test_duration_match_but_text_mismatch_hidden(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -250,7 +258,7 @@ class TestCombinedFilters:
         assert proxy.rowCount() == 0
 
     def test_both_filters_cleared_shows_all(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 
@@ -262,7 +270,7 @@ class TestCombinedFilters:
         assert proxy.rowCount() == 3
 
     def test_combined_filters_correct_subset(
-        self, source_model: "TrackTableModel", proxy: "TrackFilterProxyModel"
+        self, source_model: TrackTableModel, proxy: TrackFilterProxyModel
     ) -> None:
         from src.gui.proxy_model import DurationSegment
 

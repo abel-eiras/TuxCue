@@ -11,7 +11,9 @@ from src.core.session import load, save
 from src.core.track import Track
 
 
-def _make_track(tmp_path: Path, name: str = "sound", volume: float = 0.8, loop: bool = False) -> Track:
+def _make_track(
+    tmp_path: Path, name: str = "sound", volume: float = 0.8, loop: bool = False
+) -> Track:
     f = tmp_path / f"{name}.wav"
     f.touch()
     return Track(id=f"id-{name}", name=name, path=f.resolve(), volume=volume, loop=loop)
@@ -86,7 +88,8 @@ class TestLoad:
 
     def test_duration_s_always_zero_on_load(self, tmp_path: Path) -> None:
         track = Track(
-            id="dur-id", name="d", path=(tmp_path / "d.wav"), volume=0.8, loop=False, duration_s=99.9
+            id="dur-id", name="d", path=(tmp_path / "d.wav"),
+            volume=0.8, loop=False, duration_s=99.9
         )
         (tmp_path / "d.wav").touch()
         out = tmp_path / "session.tuxcue.json"
@@ -150,7 +153,7 @@ class TestLoad:
         loaded, errors = load(out)
         assert errors == []
         assert len(loaded) == len(tracks)
-        for original, restored in zip(tracks, loaded):
+        for original, restored in zip(tracks, loaded, strict=True):
             assert restored.id == original.id
             assert restored.name == original.name
             assert restored.path == original.path
