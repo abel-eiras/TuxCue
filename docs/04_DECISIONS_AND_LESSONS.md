@@ -28,7 +28,7 @@ a partir del brief en lugar de tomarlo literalmente del Documento Maestro.
 ninguna ambigüedad que justificase la extrapolación.
 
 **Resolución:** Todos los documentos, extensiones de fichero y referencias se corrigieron para
-coincidir exactamente con el Documento Maestro.
+coincIdir exactamente con el Documento Maestro.
 
 **Lección:** El Documento Maestro es la fuente de verdad. Nunca extrapolar nombres propios;
 copiarlos literalmente. Si hay ambigüedad real, preguntar antes de escribir.
@@ -185,3 +185,97 @@ ninguna clave del diccionario de cada track sea `"is_playing"`.
 **Lección:** Nunca verificar la ausencia de un string en un JSON serializado mediante
 búsqueda de substring en el texto crudo; el valor de algún campo (p.ej. una ruta de fichero)
 puede contenerlo por coincidencia. Parsear y comprobar la estructura.
+
+---
+
+## Pruebas Reales en VM (Linux Mint)
+
+### [2026-05-12] VolumeSliderDelegate: slider pintado pero no interactivo
+
+**Contexto:** Al probar en Linux Mint real, el slider de volumen se veía pero no respondía
+a clics ni arrastre.
+
+**Causa raíz:** Se había implementado `createEditor()`/`setEditorData()`/`setModelData()`, que
+es el flujo de edición estándar de Qt para celdas editables con widget propio. Pero en una
+celda pintada inline con `paint()`, Qt nunca llama a `createEditor()` a menos que el usuario
+active el modo edición (doble clic o F2). Un slider no necesita modo edición.
+
+**Resolución:** Eliminar completamente el trío `createEditor`/`setEditorData`/`setModelData`
+y reemplazarlo por `editorEvent()`, que intercepta `MouseButtonPress` y `MouseMove`
+directamente. La posición X del ratón se convierte en volumen [0,1] y se escribe con
+`model.setData(index, volume, TrackRole.Volume)`.
+
+**Lección:** Para delegates de control inline (sliders, botones pintados): `editorEvent()`.
+Para delegates con widget emergente (QDateEdit, QComboBox): `createEditor()`. No mezclar.
+
+---
+
+### [2026-05-12] Crash de la UI al tercer o cuarto drag-and-drop interno
+
+**Contexto:** Reordenar pistas arrastrando funcionaba en los primeros movimientos, pero al
+tercer o cuarto intento la interfaz gráfica se cerraba abruptamente.
+
+**Causa raíz:** `dropMimeData()` emitía `layoutChanged` directamente sin emitir antes
+`layoutAboutToBeChanged`. Qt mantiene internamente `QPersistentModelIndex` que se invalidan
+si la estructura del modelo cambia sin el par de señales correcto, corrompiendo el estado
+interno del view y causando un crash en la siguiente interacción.
+
+**Resolución:** Reemplazar `self.layoutChanged.emit()` por
+`self.beginMoveRows(...) / self.endMoveRows()`. Qt emite `rowsMoved` automáticamente y
+actualiza todos los índices persistentes de forma segura.
+
+**Lección:** Nunca mutar la lista interna de un `QAbstractTableModel` sin encapsular el
+cambio en el par de señales correcto: `begin*/end*`. Para reordenamiento de filas: siempre
+`beginMoveRows`/`endMoveRows`, nunca `layoutChanged` directo.
+
+---
+
+### [2026-05-12] Duración de pistas mostraba 0:00
+
+**Contexto:** Al arrastrar ficheros de audio a la tabla, la columna Duración mostraba
+siempre `0:00`.
+
+**Causa raíz:** `Track.from_path()` no probeaba la duración; dejaba `duration_s = 0.0`
+porque `src/audio` no podía ser importado desde `src/core` sin crear una dependencia
+circular con la GUI.
+
+**Resolución:** Se creó `src/audio/probe.py` con `probe_duration(path)` que itera sobre
+los cuatro probers de miniaudio. `MainWindow._on_files_dropped()` y `_load_session()`
+llaman a `probe_duration()` tras crear el Track y antes de añadirlo al modelo.
+
+**Lección:** Las funciones de inspección de metadatos de audio pertenecen a `src/audio`,
+no a `src/core`. `Track` es un dataclass puro de datos; el enriquecimiento (duración,
+etc.) es responsabilidad de la capa que conoce el backend de audio.
+
+---
+
+### [2026-05-12] Diálogo "Guardar como" no añadía extensión por defecto
+
+**Contexto:** Al guardar con Ctrl+Shift+S y escribir solo el nombre del fichero sin
+extensión, el fichero se creaba sin extensión `.tuxcue.json` y no era reconocido al abrir.
+
+**Causa raíz:** `QFileDialog.getSaveFileName()` (función estática) ignora cualquier
+`defaultSuffix`; este solo funciona en la instancia `QFileDialog`.
+Además, el filtro era `*.json` en lugar de `*.tuxcue.json`.
+
+**Resolución:** Sustituir la llamada estática por instancia `QFileDialog` con
+`setDefaultSuffix("tuxcue.json")` y filtro `*.tuxcue.json`. El diálogo de apertura
+también se corrigió al mismo filtro.
+
+**Lección:** `QFileDialog.getSaveFileName()` no respeta `defaultSuffix`. Para controlar
+la extensión por defecto siempre usar instancia + `setDefaultSuffix()`.
+
+---
+
+### [2026-05-12] Ficheros no encontrados: diálogo pero sin marca visual en la fila
+
+**Contexto:** PRD §4.3 requiere marcar visualmente las pistas cuyo fichero no existe.
+La implementación inicial solo mostraba un `QMessageBox.warning()`.
+
+**Resolución:** Se añadió `missing_file: bool = False` a `Track`. `session.load()` activa
+este flag en las pistas con fichero ausente. `TrackTableModel._resolve_data()` devuelve
+`QColor("#cc4444")` para `Qt.ForegroundRole` y un tooltip con la ruta para esas filas.
+
+**Lección:** El diálogo de error informa al abrir la sesión, pero desaparece. La marca
+visual en la fila informa de forma persistente durante toda la sesión. Ambos son
+complementarios, no alternativos.

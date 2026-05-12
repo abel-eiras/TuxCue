@@ -40,6 +40,7 @@ def load(path: Path) -> tuple[list[Track], list[str]]:
                 f"Track at index {i} is missing required fields: {missing}"
             )
         p = Path(item["path"])
+        file_missing = not p.exists()
         tracks.append(
             Track(
                 id=item["id"],
@@ -47,9 +48,10 @@ def load(path: Path) -> tuple[list[Track], list[str]]:
                 path=p,
                 volume=item["volume"],
                 loop=item["loop"],
-                duration_s=0.0,  # recalculated by AudioEngine when the file is opened
+                duration_s=0.0,
+                missing_file=file_missing,
             )
         )
-        if not p.exists():
+        if file_missing:
             errors.append(f"File not found: {p}")
     return tracks, errors
