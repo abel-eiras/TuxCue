@@ -31,6 +31,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "dlg_error_title": "Playback Error",
         "dlg_lang_title": "Language",
         "dlg_lang_body": "Changes will take effect after restarting TuxCue.",
+        # Filter bar
+        "filter_search_placeholder": "Search tracks…",
+        "filter_duration_label": "Duration:",
+        "filter_all": "All",
+        "filter_under_30s": "< 30s",
+        "filter_30s_2m": "30s – 2m",
+        "filter_2m_5m": "2m – 5m",
+        "filter_over_5m": "> 5m",
         # Tooltips
         "tooltip_missing": "File not found: {path}",
     },
@@ -64,6 +72,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "dlg_error_title": "Error de reproducción",
         "dlg_lang_title": "Idioma",
         "dlg_lang_body": "Los cambios se aplicarán al reiniciar TuxCue.",
+        # Filter bar
+        "filter_search_placeholder": "Buscar pistas…",
+        "filter_duration_label": "Duración:",
+        "filter_all": "Todas",
+        "filter_under_30s": "< 30s",
+        "filter_30s_2m": "30s – 2m",
+        "filter_2m_5m": "2m – 5m",
+        "filter_over_5m": "> 5m",
         # Tooltips
         "tooltip_missing": "Fichero no encontrado: {path}",
     },
@@ -97,6 +113,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "dlg_error_title": "Erro de reproduçón",
         "dlg_lang_title": "Idioma",
         "dlg_lang_body": "Os cambios aplicaránse ao reiniciar TuxCue.",
+        # Filter bar
+        "filter_search_placeholder": "Buscar pistas…",
+        "filter_duration_label": "Duración:",
+        "filter_all": "Todas",
+        "filter_under_30s": "< 30s",
+        "filter_30s_2m": "30s – 2m",
+        "filter_2m_5m": "2m – 5m",
+        "filter_over_5m": "> 5m",
         # Tooltips
         "tooltip_missing": "Ficheiro non atopado: {path}",
     },
