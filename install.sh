@@ -18,24 +18,31 @@ echo ""
 PYTHON=""
 for cmd in python3.12 python3.11 python3; do
     if command -v "$cmd" &>/dev/null; then
-        VER=$($cmd -c "import sys; print(sys.version_info[:2])")
         if $cmd -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)" 2>/dev/null; then
-            PYTHON="$cmd"
-            ok "Python encontrado: $($cmd --version)"
-            break
+            # Verify venv module is available for this interpreter
+            if $cmd -m venv --help &>/dev/null; then
+                PYTHON="$cmd"
+                ok "Python encontrado: $($cmd --version)"
+                break
+            fi
         fi
     fi
 done
 
 if [[ -z "$PYTHON" ]]; then
-    warn "Python 3.11+ no encontrado. Instalando desde deadsnakes PPA..."
+    warn "Python 3.11+ con venv no encontrado. Instalando..."
     sudo apt-get update -q
     sudo apt-get install -y software-properties-common
-    sudo add-apt-repository -y ppa:deadsnakes/ppa
-    sudo apt-get update -q
-    sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
-    PYTHON="python3.11"
-    ok "Python 3.11 instalado"
+    # Try system package first (Mint 22 / Ubuntu 24.04)
+    if sudo apt-get install -y python3.12-venv 2>/dev/null; then
+        PYTHON="python3.12"
+    else
+        sudo add-apt-repository -y ppa:deadsnakes/ppa
+        sudo apt-get update -q
+        sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
+        PYTHON="python3.11"
+    fi
+    ok "Python con venv instalado: $($PYTHON --version)"
 fi
 
 # ── 2. Dependencias del sistema ───────────────────────────────────────
@@ -65,8 +72,14 @@ ok "Dependencias del sistema instaladas"
 # ── 3. Entorno virtual ────────────────────────────────────────────────
 echo ""
 VENV_DIR="$(pwd)/.venv"
-if [[ -d "$VENV_DIR" ]]; then
+# Reuse only if the venv is valid (activate script exists)
+if [[ -f "$VENV_DIR/bin/activate" ]]; then
     warn "Entorno virtual ya existe en .venv — reutilizando"
+elif [[ -d "$VENV_DIR" ]]; then
+    warn "Entorno virtual incompleto detectado — recreando..."
+    rm -rf "$VENV_DIR"
+    $PYTHON -m venv "$VENV_DIR"
+    ok "Entorno virtual recreado"
 else
     echo "Creando entorno virtual en .venv ..."
     $PYTHON -m venv "$VENV_DIR"
@@ -93,15 +106,19 @@ else
 fi
 
 # ── 6. Lanzador ───────────────────────────────────────────────────────
-LAUNCHER="$HOME/Desktop/TuxCue.sh"
-cat > "$LAUNCHER" <<EOF
+# xdg-user-dir returns the correct Desktop path for any locale
+DESKTOP=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
+mkdir -p "$DESKTOP"
+APP_DIR="$(pwd)"
+LAUNCHER="$DESKTOP/TuxCue.sh"
+cat > "$LAUNCHER" <<LAUNCHEREOF
 #!/usr/bin/env bash
-cd "$(pwd)"
+cd "$APP_DIR"
 source .venv/bin/activate
 python main.py
-EOF
+LAUNCHEREOF
 chmod +x "$LAUNCHER"
-ok "Acceso directo creado en el Escritorio: TuxCue.sh"
+ok "Lanzador creado en: $LAUNCHER"
 
 # ── Resumen ───────────────────────────────────────────────────────────
 echo ""
@@ -109,10 +126,12 @@ echo "════════════════════════�
 echo -e "  ${GREEN}Instalación completada${NC}"
 echo "════════════════════════════════════════"
 echo ""
-echo "  Para arrancar la aplicación:"
+echo "  Para arrancar la aplicación desde el terminal:"
 echo ""
+echo "    cd $APP_DIR"
 echo "    source .venv/bin/activate"
 echo "    python main.py"
 echo ""
-echo "  O haz doble clic en TuxCue.sh del Escritorio."
+echo "  O ejecuta directamente:"
+echo "    bash \"$LAUNCHER\""
 echo ""
