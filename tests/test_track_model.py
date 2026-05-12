@@ -275,18 +275,18 @@ class TestDragAndDrop:
         result = model.dropMimeData(mime, Qt.MoveAction, 1, 0, QModelIndex())
         assert result is False
 
-    def test_layout_changed_emitted_on_drop(self, model: "TrackTableModel") -> None:
+    def test_rows_moved_emitted_on_drop(self, model: "TrackTableModel") -> None:
         from src.gui.track_table_model import Column
 
         model.add_track(_make_track("A"))
         model.add_track(_make_track("B"))
-        layout_signals: list[int] = []
-        model.layoutChanged.connect(lambda: layout_signals.append(1))
+        move_signals: list[int] = []
+        model.rowsMoved.connect(lambda *_: move_signals.append(1))
 
         indexes = [model.index(0, Column.NAME)]
         mime = model.mimeData(indexes)
         model.dropMimeData(mime, Qt.MoveAction, 2, 0, QModelIndex())
-        assert layout_signals, "layoutChanged must fire after a successful drop"
+        assert move_signals, "rowsMoved must fire after a successful drop"
 
 
 class TestFlags:

@@ -210,9 +210,10 @@ class TrackTableModel(QAbstractTableModel):
         dest_row = row if row >= 0 else len(self._tracks)
         if src_row == dest_row or src_row == dest_row - 1:
             return False
+        if not self.beginMoveRows(QModelIndex(), src_row, src_row, QModelIndex(), dest_row):
+            return False
         track = self._tracks.pop(src_row)
-        # Adjust destination after removal
         insert_at = dest_row if dest_row < src_row else dest_row - 1
         self._tracks.insert(insert_at, track)
-        self.layoutChanged.emit()
+        self.endMoveRows()
         return True
