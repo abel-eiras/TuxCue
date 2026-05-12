@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import array
 import threading
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Callable, Generator, Optional
 
 import miniaudio
-
 
 _SAMPLE_FORMAT = miniaudio.SampleFormat.SIGNED16
 _NCHANNELS = 2
@@ -42,8 +41,8 @@ class TrackStream:
         self._on_error = on_error
         self._lock = threading.Lock()
         self._stopped = False
-        self._device: Optional[miniaudio.PlaybackDevice] = None
-        self._generator: Optional[Generator[array.array, int, None]] = None
+        self._device: miniaudio.PlaybackDevice | None = None
+        self._generator: Generator[array.array, int, None] | None = None
 
     def _make_generator(self) -> Generator[array.array, int, None]:
         """

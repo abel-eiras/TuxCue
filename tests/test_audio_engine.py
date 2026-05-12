@@ -8,15 +8,14 @@ TrackStream.start() is also patched to avoid opening real devices.
 from __future__ import annotations
 
 import array
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.audio.engine import AudioEngine
 from src.audio.stream import TrackStream, _apply_volume
-
 
 WAV_FIXTURE = Path(__file__).parent / "fixtures" / "test_tone.wav"
 
