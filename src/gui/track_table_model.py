@@ -210,6 +210,26 @@ class TrackTableModel(QAbstractTableModel):
                 self.dataChanged.emit(idx, idx, [TrackRole.SeekPos])
                 return
 
+    def set_cue_pos(self, track_id: str, fraction: float) -> None:
+        """Set the pre-play start offset; also updates the visual slider position."""
+        for row, track in enumerate(self._tracks):
+            if track.id == track_id:
+                track.cue_pos = max(0.0, min(1.0, fraction))
+                self._seek_positions[track_id] = track.cue_pos
+                idx = self.index(row, Column.SEEK)
+                self.dataChanged.emit(idx, idx, [TrackRole.SeekPos])
+                return
+
+    def reset_cue_pos(self, track_id: str) -> None:
+        """Clear cue offset and reset the visual slider to 0 (called on stop/end)."""
+        for row, track in enumerate(self._tracks):
+            if track.id == track_id:
+                track.cue_pos = 0.0
+                self._seek_positions[track_id] = 0.0
+                idx = self.index(row, Column.SEEK)
+                self.dataChanged.emit(idx, idx, [TrackRole.SeekPos])
+                return
+
     def _notify_play_column(self, track_id: str) -> None:
         for row, track in enumerate(self._tracks):
             if track.id == track_id:

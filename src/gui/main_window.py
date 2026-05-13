@@ -129,10 +129,10 @@ class MainWindow(QMainWindow):
             lambda tid: self._model.set_pause_state(tid, False)
         )
         self._controller.track_stopped.connect(
-            lambda tid: self._model.set_seek_pos(tid, 0.0)
+            lambda tid: self._model.reset_cue_pos(tid)
         )
         self._controller.playback_ended.connect(
-            lambda tid: self._model.set_seek_pos(tid, 0.0)
+            lambda tid: self._model.reset_cue_pos(tid)
         )
         self._controller.track_error.connect(self._on_track_error)
         self._view.files_dropped.connect(self._on_files_dropped)
@@ -210,7 +210,7 @@ class MainWindow(QMainWindow):
             return
         track = self._model.get_track(track_id)
         if track is not None:
-            self._controller.play(track.id, track.path, track.volume, track.loop)
+            self._controller.play(track.id, track.path, track.volume, track.loop, track.cue_pos)
 
     def _on_loop_toggle(self, track_id: str) -> None:
         track = self._model.get_track(track_id)
@@ -224,9 +224,13 @@ class MainWindow(QMainWindow):
         for tid in self._model.all_track_ids():
             self._model.set_play_state(tid, False)
             self._model.set_pause_state(tid, False)
+            self._model.reset_cue_pos(tid)
 
     def _on_seek(self, track_id: str, fraction: float) -> None:
-        self._controller.seek(track_id, fraction)
+        if self._controller.is_playing(track_id):
+            self._controller.seek(track_id, fraction)
+        else:
+            self._model.set_cue_pos(track_id, fraction)
 
     def _on_position_poll(self) -> None:
         for track_id in self._model.all_track_ids():
