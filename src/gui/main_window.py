@@ -29,6 +29,32 @@ from src.i18n.strings import SUPPORTED_LOCALES
 
 _MAX_RECENT = 8
 
+_DARK_CSS = """
+QWidget { background-color: #2b2b2b; color: #e0e0e0; }
+QMenuBar { background-color: #353535; color: #e0e0e0; }
+QMenuBar::item:selected { background-color: #4a4a4a; }
+QMenu { background-color: #353535; color: #e0e0e0; border: 1px solid #4a4a4a; }
+QMenu::item:selected { background-color: #4a90d9; color: #ffffff; }
+QToolBar { background-color: #353535; border-bottom: 1px solid #4a4a4a; spacing: 4px; }
+QTableView { background-color: #2b2b2b; alternate-background-color: #323232; color: #e0e0e0; gridline-color: #3e3e3e; }
+QTableView::item:selected { background-color: #4a90d9; color: #ffffff; }
+QHeaderView::section { background-color: #353535; color: #e0e0e0; border: 1px solid #4a4a4a; padding: 2px; }
+QLineEdit { background-color: #353535; color: #e0e0e0; border: 1px solid #4a4a4a; border-radius: 3px; padding: 2px 4px; }
+QLineEdit:focus { border-color: #4a90d9; }
+QScrollBar:vertical { background-color: #2b2b2b; width: 10px; border: none; }
+QScrollBar::handle:vertical { background-color: #555; border-radius: 5px; min-height: 20px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar:horizontal { background-color: #2b2b2b; height: 10px; border: none; }
+QScrollBar::handle:horizontal { background-color: #555; border-radius: 5px; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+QRadioButton { color: #e0e0e0; spacing: 6px; }
+QRadioButton::indicator { width: 14px; height: 14px; border-radius: 7px; border: 2px solid #777; background-color: #2b2b2b; }
+QRadioButton::indicator:checked { background-color: #4a90d9; border-color: #4a90d9; }
+QPushButton { background-color: #353535; color: #e0e0e0; border: 1px solid #4a4a4a; border-radius: 3px; padding: 3px 10px; }
+QPushButton:hover { background-color: #4a4a4a; }
+QPushButton:pressed { background-color: #4a90d9; color: #ffffff; }
+QLabel { color: #e0e0e0; }
+"""
 
 class MainWindow(QMainWindow):
     def __init__(self, controller: AudioController, parent: QWidget | None = None) -> None:
@@ -36,10 +62,12 @@ class MainWindow(QMainWindow):
         self._controller = controller
         self._session_path: Path | None = None
 
+        _cfg = load_config()
         app_font = QApplication.instance().font()
         self._base_font_size: int = app_font.pointSize() if app_font.pointSize() > 0 else 9
-        self._font_scale: int = int(load_config().get("font_scale", 0))  # type: ignore[arg-type]
-        self._apply_font_scale()
+        self._font_scale: int = int(_cfg.get("font_scale", 0))  # type: ignore[arg-type]
+        self._theme: str = str(_cfg.get("theme", "light"))
+        self._apply_stylesheet()
 
         self._model = TrackTableModel(self)
         self._proxy = TrackFilterProxyModel(self)
@@ -96,6 +124,17 @@ class MainWindow(QMainWindow):
             lang_group.addAction(action)
         lang_group.triggered.connect(self._on_language_changed)
 
+        theme_menu = settings_menu.addMenu(tr("menu_theme"))
+        theme_group = QActionGroup(self)
+        theme_group.setExclusive(True)
+        for theme_id, label_key in (("light", "theme_light"), ("dark", "theme_dark")):
+            action = theme_menu.addAction(tr(label_key))
+            action.setCheckable(True)
+            action.setChecked(theme_id == self._theme)
+            action.setData(theme_id)
+            theme_group.addAction(action)
+        theme_group.triggered.connect(self._on_theme_changed)
+
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Main")
         self.addToolBar(toolbar)
@@ -111,7 +150,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl++"), self).activated.connect(lambda: self._zoom(+1))
         QShortcut(QKeySequence("Ctrl+="), self).activated.connect(lambda: self._zoom(+1))
         QShortcut(QKeySequence("Ctrl+-"), self).activated.connect(lambda: self._zoom(-1))
-        QShortcut(QKeySequence("Ctrl+0"), self).activated.connect(lambda: self._zoom_reset())
+        QShortcut(QKeySequence("Ctrl+0"), self).activated.connect(self._zoom_reset)
 
     def _connect_signals(self) -> None:
         self._filter_bar.text_changed.connect(self._proxy.setFilterFixedString)
@@ -152,7 +191,7 @@ class MainWindow(QMainWindow):
         self._view.files_dropped.connect(self._on_files_dropped)
         self._view.seek_delegate.seek_requested.connect(self._on_seek)
 
-    # ── Recent files ───────────────────────────────────────────────────────────────────────────────────
+    # ── Recent files ──────────────────────────────────────────────────────────────────────────────────────────────────
 
     def _rebuild_recent_menu(self) -> None:
         self._recent_menu.clear()
@@ -339,16 +378,23 @@ class MainWindow(QMainWindow):
 
     def _zoom(self, delta: int) -> None:
         self._font_scale = max(-3, min(10, self._font_scale + delta))
-        self._apply_font_scale()
+        self._apply_stylesheet()
 
     def _zoom_reset(self) -> None:
         self._font_scale = 0
-        self._apply_font_scale()
+        self._apply_stylesheet()
 
-    def _apply_font_scale(self) -> None:
+    def _on_theme_changed(self, action: object) -> None:
+        if not isinstance(action, QAction):
+            return
+        self._theme = action.data()
+        self._apply_stylesheet()
+
+    def _apply_stylesheet(self) -> None:
         size = max(6, self._base_font_size + self._font_scale)
-        # setFont() is ignored by GTK-themed Qt on Linux; stylesheet overrides the platform theme
-        QApplication.instance().setStyleSheet(f"* {{ font-size: {size}pt; }}")
+        font_css = f"* {{ font-size: {size}pt; }}"
+        theme_css = _DARK_CSS if self._theme == "dark" else ""
+        QApplication.instance().setStyleSheet(theme_css + font_css)
         row_h = max(16, 24 + self._font_scale * 2)
         if hasattr(self, "_view"):
             self._view.verticalHeader().setDefaultSectionSize(row_h)
@@ -366,6 +412,7 @@ class MainWindow(QMainWindow):
         state_bytes = bytes(self._view.horizontalHeader().saveState())
         config["column_state"] = base64.b64encode(state_bytes).decode()
         config["font_scale"] = self._font_scale
+        config["theme"] = self._theme
         save_config(config)
 
     def closeEvent(self, event: object) -> None:
