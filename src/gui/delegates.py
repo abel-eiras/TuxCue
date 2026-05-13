@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QModelIndex, QObject, QPersistentModelIndex, Qt, Signal
-from PySide6.QtGui import QMouseEvent, QPainter
+from PySide6.QtGui import QColor, QMouseEvent, QPainter
 from PySide6.QtWidgets import (
     QApplication,
     QLineEdit,
@@ -142,7 +142,13 @@ class SeekSliderDelegate(QStyledItemDelegate):
             current_s = pos * duration_s
             text = f"{_fmt_time(current_s)} / {_fmt_time(duration_s)}"
             painter.save()
-            painter.setPen(option.palette.text().color())
+            outline = QColor(0, 0, 0, 200)
+            for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+                painter.setPen(outline)
+                painter.drawText(
+                    option.rect.translated(dx, dy), Qt.AlignCenter | Qt.AlignVCenter, text
+                )
+            painter.setPen(QColor(255, 255, 255))
             painter.drawText(option.rect, Qt.AlignCenter | Qt.AlignVCenter, text)
             painter.restore()
 

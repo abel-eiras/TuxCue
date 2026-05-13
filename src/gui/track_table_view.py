@@ -49,11 +49,12 @@ class TrackTableView(QTableView):
         header.setSectionResizeMode(Column.DURATION, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.PLAY, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.LOOP, QHeaderView.ResizeMode.Fixed)
-        header.setSectionResizeMode(Column.VOLUME, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(Column.VOLUME, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.SEEK, QHeaderView.ResizeMode.Stretch)
         self.setColumnWidth(Column.DURATION, 80)
         self.setColumnWidth(Column.PLAY, 50)
         self.setColumnWidth(Column.LOOP, 50)
+        self.setColumnWidth(Column.VOLUME, 100)
         header.setSectionsMovable(True)
 
         vheader = self.verticalHeader()
