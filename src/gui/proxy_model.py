@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from enum import IntEnum
+from typing import Any
 
-from PySide6.QtCore import QModelIndex, QSortFilterProxyModel
+from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt
 
 from src.gui.track_table_model import TrackRole
 
@@ -32,6 +33,16 @@ class TrackFilterProxyModel(QSortFilterProxyModel):
     def set_duration_segment(self, seg: DurationSegment) -> None:
         self._segment = seg
         self.invalidateFilter()
+
+    def headerData(
+        self,
+        section: int,
+        orientation: Qt.Orientation,
+        role: int = Qt.DisplayRole,
+    ) -> Any:
+        if orientation == Qt.Vertical and role == Qt.DisplayRole:
+            return section + 1
+        return super().headerData(section, orientation, role)
 
     def filterAcceptsRow(
         self,

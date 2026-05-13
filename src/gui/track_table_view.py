@@ -43,8 +43,8 @@ class TrackTableView(QTableView):
         self.setAcceptDrops(True)
 
     def _setup_columns(self) -> None:
-        header = self.horizontalHeader()
         from PySide6.QtWidgets import QHeaderView
+        header = self.horizontalHeader()
         header.setSectionResizeMode(Column.NAME, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(Column.DURATION, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.PLAY, QHeaderView.ResizeMode.Fixed)
@@ -55,6 +55,12 @@ class TrackTableView(QTableView):
         self.setColumnWidth(Column.PLAY, 50)
         self.setColumnWidth(Column.LOOP, 50)
         header.setSectionsMovable(True)
+
+        vheader = self.verticalHeader()
+        vheader.setVisible(True)
+        vheader.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        vheader.setDefaultSectionSize(24)
+        vheader.setMinimumWidth(28)
 
     def setModel(self, model: QAbstractItemModel | None) -> None:
         super().setModel(model)
