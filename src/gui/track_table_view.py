@@ -6,7 +6,12 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent
 from PySide6.QtWidgets import QAbstractItemView, QTableView, QWidget
 
-from src.gui.delegates import LoopButtonDelegate, PlayButtonDelegate, VolumeSliderDelegate
+from src.gui.delegates import (
+    LoopButtonDelegate,
+    PlayButtonDelegate,
+    SeekSliderDelegate,
+    VolumeSliderDelegate,
+)
 from src.gui.track_table_model import Column
 
 
@@ -18,6 +23,7 @@ class TrackTableView(QTableView):
         self._play_delegate = PlayButtonDelegate(self)
         self._loop_delegate = LoopButtonDelegate(self)
         self._volume_delegate = VolumeSliderDelegate(self)
+        self._seek_delegate = SeekSliderDelegate(self)
         self._setup_delegates()
         self._setup_drag_drop()
         self._setup_columns()
@@ -26,6 +32,7 @@ class TrackTableView(QTableView):
         self.setItemDelegateForColumn(Column.PLAY, self._play_delegate)
         self.setItemDelegateForColumn(Column.LOOP, self._loop_delegate)
         self.setItemDelegateForColumn(Column.VOLUME, self._volume_delegate)
+        self.setItemDelegateForColumn(Column.SEEK, self._seek_delegate)
 
     def _setup_drag_drop(self) -> None:
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
@@ -41,6 +48,7 @@ class TrackTableView(QTableView):
         header.setSectionResizeMode(Column.PLAY, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.LOOP, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.VOLUME, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(Column.SEEK, QHeaderView.ResizeMode.Stretch)
         self.setColumnWidth(Column.DURATION, 80)
         self.setColumnWidth(Column.PLAY, 50)
         self.setColumnWidth(Column.LOOP, 50)
@@ -56,6 +64,10 @@ class TrackTableView(QTableView):
     @property
     def volume_delegate(self) -> VolumeSliderDelegate:
         return self._volume_delegate
+
+    @property
+    def seek_delegate(self) -> SeekSliderDelegate:
+        return self._seek_delegate
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():

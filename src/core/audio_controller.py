@@ -93,6 +93,14 @@ class AudioController(QObject):
     def is_paused(self, track_id: str) -> bool:
         return self._engine.is_paused(track_id)
 
+    def seek(self, track_id: str, fraction: float) -> None:
+        """Jump to position fraction [0.0, 1.0]. No-op if not playing."""
+        self._engine.seek(track_id, fraction)
+
+    def get_position(self, track_id: str) -> float:
+        """Return current playback position as a fraction [0.0, 1.0]."""
+        return self._engine.get_position(track_id)
+
     def is_playing(self, track_id: str) -> bool:
         return self._engine.is_playing(track_id)
 

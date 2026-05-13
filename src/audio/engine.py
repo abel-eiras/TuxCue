@@ -106,6 +106,19 @@ class AudioEngine:
             stream = self._streams.get(track_id)
         return stream.is_paused() if stream is not None else False
 
+    def seek(self, track_id: str, fraction: float) -> None:
+        """Schedule a seek to fraction [0.0, 1.0] on an active stream."""
+        with self._lock:
+            stream = self._streams.get(track_id)
+        if stream is not None:
+            stream.seek(fraction)
+
+    def get_position(self, track_id: str) -> float:
+        """Return playback position as a fraction [0.0, 1.0]. Returns 0 if not playing."""
+        with self._lock:
+            stream = self._streams.get(track_id)
+        return stream.position_fraction() if stream is not None else 0.0
+
     def is_playing(self, track_id: str) -> bool:
         """Return True if a stream for track_id is currently active."""
         with self._lock:

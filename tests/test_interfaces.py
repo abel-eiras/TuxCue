@@ -43,6 +43,12 @@ class MinimalEngine:
     def is_paused(self, track_id: str) -> bool:
         return False
 
+    def seek(self, track_id: str, fraction: float) -> None:
+        pass
+
+    def get_position(self, track_id: str) -> float:
+        return 0.0
+
     def is_playing(self, track_id: str) -> bool:
         return False
 

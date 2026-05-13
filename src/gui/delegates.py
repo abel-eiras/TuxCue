@@ -92,6 +92,57 @@ class LoopButtonDelegate(QStyledItemDelegate):
         return False
 
 
+class SeekSliderDelegate(QStyledItemDelegate):
+    seek_requested: Signal = Signal(str, float)
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+
+    def paint(
+        self,
+        painter: QPainter,
+        option: Any,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> None:
+        pos: float = index.data(TrackRole.SeekPos) or 0.0
+        is_playing: bool = index.data(TrackRole.PlayState) or False
+        opt = QStyleOptionSlider()
+        opt.rect = option.rect
+        opt.minimum = 0
+        opt.maximum = 1000
+        opt.sliderValue = int(pos * 1000)
+        opt.sliderPosition = opt.sliderValue
+        opt.orientation = Qt.Horizontal
+        opt.subControls = QStyle.SC_SliderGroove | QStyle.SC_SliderHandle
+        opt.activeSubControls = QStyle.SC_None
+        if not is_playing:
+            opt.state &= ~QStyle.State_Enabled
+        QApplication.style().drawComplexControl(QStyle.CC_Slider, opt, painter)
+
+    def editorEvent(
+        self,
+        event: Any,
+        model: Any,
+        option: Any,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> bool:
+        from PySide6.QtCore import QEvent
+        if (
+            event.type() in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove)
+            and event.buttons() & Qt.MouseButton.LeftButton
+        ):
+            if not (index.data(TrackRole.PlayState) or False):
+                return False
+            rect = option.rect
+            x = max(0, min(int(event.position().x()) - rect.left(), rect.width()))
+            fraction = x / rect.width() if rect.width() > 0 else 0.0
+            track_id: str = index.data(TrackRole.TrackId)
+            if track_id:
+                self.seek_requested.emit(track_id, fraction)
+            return True
+        return False
+
+
 class VolumeSliderDelegate(QStyledItemDelegate):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)

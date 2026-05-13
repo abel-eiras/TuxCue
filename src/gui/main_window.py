@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtCore import QModelIndex, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -46,6 +46,10 @@ class MainWindow(QMainWindow):
         self._build_menu()
         self._build_toolbar()
         self._connect_signals()
+        self._pos_timer = QTimer(self)
+        self._pos_timer.setInterval(100)
+        self._pos_timer.timeout.connect(self._on_position_poll)
+        self._pos_timer.start()
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -111,8 +115,15 @@ class MainWindow(QMainWindow):
         self._controller.track_resumed.connect(
             lambda tid: self._model.set_pause_state(tid, False)
         )
+        self._controller.track_stopped.connect(
+            lambda tid: self._model.set_seek_pos(tid, 0.0)
+        )
+        self._controller.playback_ended.connect(
+            lambda tid: self._model.set_seek_pos(tid, 0.0)
+        )
         self._controller.track_error.connect(self._on_track_error)
         self._view.files_dropped.connect(self._on_files_dropped)
+        self._view.seek_delegate.seek_requested.connect(self._on_seek)
 
     def _on_language_changed(self, action: object) -> None:
         if not isinstance(action, QAction):
@@ -159,6 +170,15 @@ class MainWindow(QMainWindow):
         for tid in self._model.all_track_ids():
             self._model.set_play_state(tid, False)
             self._model.set_pause_state(tid, False)
+
+    def _on_seek(self, track_id: str, fraction: float) -> None:
+        self._controller.seek(track_id, fraction)
+
+    def _on_position_poll(self) -> None:
+        for track_id in self._model.all_track_ids():
+            if self._controller.is_playing(track_id):
+                pos = self._controller.get_position(track_id)
+                self._model.set_seek_pos(track_id, pos)
 
     def _on_track_error(self, track_id: str, message: str) -> None:
         QMessageBox.warning(self, tr("dlg_error_title"), message)
