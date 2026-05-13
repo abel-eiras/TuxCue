@@ -138,7 +138,7 @@ class MainWindow(QMainWindow):
         self._view.files_dropped.connect(self._on_files_dropped)
         self._view.seek_delegate.seek_requested.connect(self._on_seek)
 
-    # ── Recent files ─────────────────────────────────────────────────────
+    # ── Recent files ─────────────────────────────────────────────────────────
 
     def _rebuild_recent_menu(self) -> None:
         self._recent_menu.clear()
@@ -166,7 +166,7 @@ class MainWindow(QMainWindow):
         save_config(config)
         self._rebuild_recent_menu()
 
-    # ── Hotkeys ──────────────────────────────────────────────────────
+    # ── Hotkeys ───────────────────────────────────────────────────────────────
 
     def _on_track_hotkey(self, n: int) -> None:
         row = n - 1
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
         if track_id:
             self._on_play_stop(track_id)
 
-    # ── Signals ─────────────────────────────────────────────────────
+    # ── Signals ───────────────────────────────────────────────────────────────
 
     def _on_language_changed(self, action: object) -> None:
         if not isinstance(action, QAction):

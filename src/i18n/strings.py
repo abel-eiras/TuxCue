@@ -121,7 +121,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "dlg_missing_title": "Ficheiros non atopados",
         "dlg_error_title": "Erro de reproduçón",
         "dlg_lang_title": "Idioma",
-        "dlg_lang_body": "Os cambios aplicáránse ao reiniciar TuxCue.",
+        "dlg_lang_body": "Os cambios aplicaránse ao reiniciar TuxCue.",
         # Filter bar
         "filter_search_placeholder": "Buscar pistas…",
         "filter_duration_label": "Duración:",

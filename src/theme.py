@@ -3,19 +3,19 @@ from __future__ import annotations
 from PySide6.QtWidgets import QApplication
 
 _DARK = """
-/* ── Base ────────────────────────────────────── */
+/* ── Base ─────────────────────────────────────────────── */
 QWidget {
     background-color: #1e1e1e;
     color: #e0e0e0;
     font-size: 13px;
 }
 
-/* ── Main window / dialogs ────────────────────── */
+/* ── Main window / dialogs ────────────────────────────── */
 QMainWindow, QDialog, QMessageBox {
     background-color: #1e1e1e;
 }
 
-/* ── Menu bar ───────────────────────────────── */
+/* ── Menu bar ─────────────────────────────────────────── */
 QMenuBar {
     background-color: #252525;
     color: #e0e0e0;
@@ -47,7 +47,7 @@ QMenu::separator {
     margin: 4px 0;
 }
 
-/* ── Tool bar ───────────────────────────────── */
+/* ── Tool bar ─────────────────────────────────────────── */
 QToolBar {
     background-color: #252525;
     border-bottom: 1px solid #333;
@@ -74,7 +74,7 @@ QToolButton:pressed {
     background-color: #1a1a1a;
 }
 
-/* ── Table ──────────────────────────────────── */
+/* ── Table ────────────────────────────────────────────── */
 QTableView {
     background-color: #1e1e1e;
     alternate-background-color: #232323;
@@ -114,7 +114,7 @@ QHeaderView::section:last {
     border-right: none;
 }
 
-/* ── Scroll bars ──────────────────────────────── */
+/* ── Scroll bars ──────────────────────────────────────── */
 QScrollBar:vertical {
     background-color: #1e1e1e;
     width: 10px;
@@ -149,7 +149,7 @@ QScrollBar::handle:horizontal:hover {
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: none; }
 
-/* ── Line edit ──────────────────────────────── */
+/* ── Line edit ────────────────────────────────────────── */
 QLineEdit {
     background-color: #2a2a2a;
     color: #e0e0e0;
@@ -165,7 +165,7 @@ QLineEdit::placeholder {
     color: #666;
 }
 
-/* ── Buttons ────────────────────────────────── */
+/* ── Buttons ──────────────────────────────────────────── */
 QPushButton {
     background-color: #2e2e2e;
     color: #e0e0e0;
@@ -185,7 +185,7 @@ QPushButton:default {
     border-color: #4a90d9;
 }
 
-/* ── Radio buttons ──────────────────────────── */
+/* ── Radio buttons ────────────────────────────────────── */
 QRadioButton {
     color: #e0e0e0;
     spacing: 5px;
@@ -205,7 +205,7 @@ QRadioButton::indicator:hover {
     border-color: #888;
 }
 
-/* ── Check boxes ──────────────────────────────── */
+/* ── Check boxes ──────────────────────────────────────── */
 QCheckBox {
     color: #e0e0e0;
     spacing: 5px;
@@ -222,13 +222,13 @@ QCheckBox::indicator:checked {
     border-color: #4a90d9;
 }
 
-/* ── Labels ───────────────────────────────────── */
+/* ── Labels ───────────────────────────────────────────── */
 QLabel {
     color: #e0e0e0;
     background-color: transparent;
 }
 
-/* ── Tooltips ────────────────────────────────── */
+/* ── Tooltips ─────────────────────────────────────────── */
 QToolTip {
     background-color: #2e2e2e;
     color: #e0e0e0;
@@ -237,14 +237,14 @@ QToolTip {
     border-radius: 3px;
 }
 
-/* ── Status bar ───────────────────────────────── */
+/* ── Status bar ───────────────────────────────────────── */
 QStatusBar {
     background-color: #252525;
     color: #888;
     border-top: 1px solid #333;
 }
 
-/* ── File dialogs ─────────────────────────────── */
+/* ── File dialogs ─────────────────────────────────────── */
 QFileDialog {
     background-color: #1e1e1e;
     color: #e0e0e0;
