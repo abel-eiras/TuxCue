@@ -6,12 +6,10 @@ from PySide6.QtCore import QModelIndex, QObject, QPersistentModelIndex, Qt, Sign
 from PySide6.QtGui import QMouseEvent, QPainter
 from PySide6.QtWidgets import (
     QApplication,
-    QSlider,
     QStyle,
+    QStyledItemDelegate,
     QStyleOptionButton,
     QStyleOptionSlider,
-    QStyledItemDelegate,
-    QWidget,
 )
 
 from src.gui.track_table_model import TrackRole
@@ -118,11 +116,13 @@ class VolumeSliderDelegate(QStyledItemDelegate):
         index: QModelIndex | QPersistentModelIndex,
     ) -> bool:
         from PySide6.QtCore import QEvent
-        if event.type() in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove):
-            if event.buttons() & Qt.MouseButton.LeftButton:
-                rect = option.rect
-                x = max(0, min(int(event.position().x()) - rect.left(), rect.width()))
-                volume = x / rect.width() if rect.width() > 0 else 0.0
-                model.setData(index, volume, TrackRole.Volume)
-                return True
+        if (
+            event.type() in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove)
+            and event.buttons() & Qt.MouseButton.LeftButton
+        ):
+            rect = option.rect
+            x = max(0, min(int(event.position().x()) - rect.left(), rect.width()))
+            volume = x / rect.width() if rect.width() > 0 else 0.0
+            model.setData(index, volume, TrackRole.Volume)
+            return True
         return False

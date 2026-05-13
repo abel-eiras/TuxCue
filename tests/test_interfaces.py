@@ -1,10 +1,8 @@
 """Tests for src/core/interfaces.py — IAudioEngine Protocol conformance."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock
-
-import pytest
 
 from src.core.interfaces import IAudioEngine
 

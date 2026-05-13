@@ -14,7 +14,7 @@ echo "  TuxCue V1 — Instalación"
 echo "════════════════════════════════════════"
 echo ""
 
-# ── 1. Python 3.11+ ──────────────────────────────────────────────────
+# ── 1. Python 3.11+ ──────────────────────────────────────
 PYTHON=""
 for cmd in python3.12 python3.11 python3; do
     if command -v "$cmd" &>/dev/null; then
@@ -45,7 +45,7 @@ if [[ -z "$PYTHON" ]]; then
     ok "Python con venv instalado: $($PYTHON --version)"
 fi
 
-# ── 2. Dependencias del sistema ───────────────────────────────────────
+# ── 2. Dependencias del sistema ───────────────────────────────────
 echo ""
 echo "Instalando dependencias del sistema..."
 sudo apt-get update -q
@@ -69,7 +69,7 @@ sudo apt-get install -y \
     2>/dev/null || true
 ok "Dependencias del sistema instaladas"
 
-# ── 3. Entorno virtual ────────────────────────────────────────────────
+# ── 3. Entorno virtual ──────────────────────────────────────────
 echo ""
 VENV_DIR="$(pwd)/.venv"
 # Reuse only if the venv is valid (activate script exists)
@@ -95,7 +95,7 @@ echo "Instalando PySide6 y miniaudio (puede tardar 1-2 minutos)..."
 pip install "PySide6>=6.6" "miniaudio>=1.60" --quiet
 ok "PySide6 y miniaudio instalados"
 
-# ── 5. Verificación: tests ────────────────────────────────────────────
+# ── 5. Verificación: tests ──────────────────────────────────────────
 echo ""
 echo "Ejecutando tests de verificación..."
 pip install pytest --quiet
@@ -105,33 +105,63 @@ else
     warn "Algunos tests fallaron (puede ser normal si PySide6-stubs no está instalado)"
 fi
 
-# ── 6. Lanzador ───────────────────────────────────────────────────────
-# xdg-user-dir returns the correct Desktop path for any locale
-DESKTOP=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
-mkdir -p "$DESKTOP"
+# ── 6. Lanzador ───────────────────────────────────────────────
 APP_DIR="$(pwd)"
-LAUNCHER="$DESKTOP/TuxCue.sh"
-cat > "$LAUNCHER" <<LAUNCHEREOF
-#!/usr/bin/env bash
-cd "$APP_DIR"
-source .venv/bin/activate
-python main.py
-LAUNCHEREOF
-chmod +x "$LAUNCHER"
-ok "Lanzador creado en: $LAUNCHER"
+DESKTOP_DIR=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
+APPS_DIR="$HOME/.local/share/applications"
+ICON="$APP_DIR/docs/icon.png"
+mkdir -p "$DESKTOP_DIR" "$APPS_DIR"
 
-# ── Resumen ───────────────────────────────────────────────────────────
+# Wrapper script (used by .desktop so the venv is activated correctly)
+WRAPPER="$APP_DIR/tuxcue-launch.sh"
+cat > "$WRAPPER" <<'WRAPEOF'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+source .venv/bin/activate
+exec python main.py "$@"
+WRAPEOF
+chmod +x "$WRAPPER"
+
+# .desktop file (freedesktop standard — makes the app appear in menus)
+DOTDESKTOP="$APP_DIR/tuxcue.desktop"
+cat > "$DOTDESKTOP" <<DESKTOPEOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=TuxCue
+GenericName=Audio Soundboard
+Comment=Reproductor de audio para regidores y técnicos de sonido
+Exec=$WRAPPER
+Icon=$ICON
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+StartupWMClass=tuxcue
+DESKTOPEOF
+chmod +x "$DOTDESKTOP"
+
+# Install to app menu
+cp "$DOTDESKTOP" "$APPS_DIR/tuxcue.desktop"
+update-desktop-database "$APPS_DIR" 2>/dev/null || true
+
+# Install to Desktop and mark as trusted (Linux Mint / GNOME / Cinnamon)
+cp "$DOTDESKTOP" "$DESKTOP_DIR/TuxCue.desktop"
+chmod +x "$DESKTOP_DIR/TuxCue.desktop"
+gio set "$DESKTOP_DIR/TuxCue.desktop" metadata::trusted true 2>/dev/null || true
+
+ok "Lanzador creado en escritorio y menú Multimedia"
+
+# ── Resumen ──────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════"
 echo -e "  ${GREEN}Instalación completada${NC}"
 echo "════════════════════════════════════════"
 echo ""
-echo "  Para arrancar la aplicación desde el terminal:"
+echo "  Para arrancar la aplicación:"
 echo ""
-echo "    cd $APP_DIR"
-echo "    source .venv/bin/activate"
-echo "    python main.py"
+echo "    Escritorio → doble clic en TuxCue"
+echo "    Menú → Multimedia → TuxCue"
 echo ""
-echo "  O ejecuta directamente:"
-echo "    bash \"$LAUNCHER\""
+echo "  O desde terminal:"
+echo "    cd $APP_DIR && source .venv/bin/activate && python main.py"
 echo ""

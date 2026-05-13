@@ -1,7 +1,7 @@
 # 🎭 TuxCue
 
 <p align="center">
-  <img src="docs/logo.webp" alt="TuxCue" width="420"/>
+  <img src="docs/logo.png" alt="TuxCue" width="420"/>
 </p>
 
 Un reproductor de audio para regidores y técnicos de sonido en producciones teatrales. Sin florituras, sin secuenciación automática, sin las mil funciones que no vas a usar. Solo tus pistas, tus cues y control total sobre cada una de ellas.
@@ -52,7 +52,7 @@ cd TuxCue
 bash install.sh
 ```
 
-El script se encarga de todo: Python 3.11+, entorno virtual, PySide6, miniaudio y las librerías del sistema necesarias. Al terminar tendrás un `TuxCue.sh` en el Escritorio.
+El script se encarga de todo: Python 3.11+, entorno virtual, PySide6, miniaudio y las librerías del sistema necesarias. Al terminar tendrás un acceso directo **TuxCue** en el Escritorio y en el menú **Multimedia**.
 
 **Para actualizar a la última versión:**
 ```bash
@@ -130,7 +130,7 @@ El motor de audio (`src/audio`) no importa Qt en absoluto. El `AudioController` 
 ## 🗺️ Roadmap
 
 | Versión | Estado | Qué incluye |
-|---------|--------|-------------|
+|---------|--------|--------------|
 | **V1.0** | ✅ Listo | Cartwall completo: polifonía, filtros, drag & drop, sesiones |
 | **V1.1** | 🔜 Próximo | VU meter global, waveform thumbnail por pista, exportar lista de cues |
 | **V2.0** | 💭 Futuro | Línea de tiempo (mini-DAW), automatización de volumen, grupos/buses |

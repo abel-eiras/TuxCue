@@ -6,9 +6,9 @@ pytest-qt is NOT needed here because we only test AudioController as a
 QObject — we do need a QApplication for Qt to initialise signals.
 """
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -63,6 +63,7 @@ class TestAudioControllerDelegation:
     def test_stop_delegates_to_engine(
         self, controller: "AudioController", mock_engine: MagicMock
     ) -> None:
+        mock_engine.is_playing.return_value = True
         controller.stop("tid")
         mock_engine.stop.assert_called_once_with("tid")
 
@@ -92,7 +93,10 @@ class TestAudioControllerDelegation:
 
 
 class TestAudioControllerSignals:
-    def test_stop_emits_track_stopped(self, controller: "AudioController", mock_engine: MagicMock) -> None:
+    def test_stop_emits_track_stopped(
+        self, controller: "AudioController", mock_engine: MagicMock
+    ) -> None:
+        mock_engine.is_playing.return_value = True
         received: list[str] = []
         controller.track_stopped.connect(received.append)
         controller.stop("tid")
