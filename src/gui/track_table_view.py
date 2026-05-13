@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent
-from PySide6.QtWidgets import QAbstractItemView, QTableView, QWidget
+from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent, QMouseEvent
+from PySide6.QtWidgets import QAbstractItemView, QStyleOptionViewItem, QTableView, QWidget
 
 from src.gui.delegates import (
     LoopButtonDelegate,
@@ -13,6 +13,8 @@ from src.gui.delegates import (
     VolumeSliderDelegate,
 )
 from src.gui.track_table_model import Column
+
+_SLIDER_COLUMNS = (Column.VOLUME, Column.SEEK)
 
 
 class TrackTableView(QTableView):
@@ -35,8 +37,8 @@ class TrackTableView(QTableView):
         self.setItemDelegateForColumn(Column.SEEK, self._seek_delegate)
 
     def _setup_drag_drop(self) -> None:
-        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        # DropOnly so Qt never initiates a row-drag, which would swallow slider MouseMove events
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DropOnly)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setAcceptDrops(True)
 
@@ -52,6 +54,7 @@ class TrackTableView(QTableView):
         self.setColumnWidth(Column.DURATION, 80)
         self.setColumnWidth(Column.PLAY, 50)
         self.setColumnWidth(Column.LOOP, 50)
+        header.setSectionsMovable(True)
 
     @property
     def play_delegate(self) -> PlayButtonDelegate:
@@ -68,6 +71,17 @@ class TrackTableView(QTableView):
     @property
     def seek_delegate(self) -> SeekSliderDelegate:
         return self._seek_delegate
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if event.buttons() & Qt.MouseButton.LeftButton:
+            index = self.indexAt(event.pos())
+            if index.isValid() and index.column() in _SLIDER_COLUMNS:
+                opt = QStyleOptionViewItem()
+                opt.rect = self.visualRect(index)
+                delegate = self.itemDelegate(index)
+                if delegate and delegate.editorEvent(event, self.model(), opt, index):
+                    return
+        super().mouseMoveEvent(event)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
