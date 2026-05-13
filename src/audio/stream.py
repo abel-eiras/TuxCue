@@ -42,17 +42,39 @@ class TrackStream:
         self._lock = threading.Lock()
         self._stopped = False
         self._paused = False
+        self._seek_frame: int | None = None
+        self._frames_played: int = 0
+        self._total_frames: int = 0
         self._device: miniaudio.PlaybackDevice | None = None
         self._generator: Generator[array.array, int, None] | None = None
 
+    def _probe_total_frames(self) -> int:
+        """Return total frames at _SAMPLE_RATE by trying all supported probers."""
+        probers = [
+            miniaudio.wav_get_file_info,
+            miniaudio.mp3_get_file_info,
+            miniaudio.flac_get_file_info,
+            miniaudio.vorbis_get_file_info,
+        ]
+        for probe in probers:
+            try:
+                info = probe(str(self._path))
+                if info.sample_rate > 0:
+                    duration_s = info.num_frames / info.sample_rate
+                    return int(duration_s * _SAMPLE_RATE)
+            except Exception:
+                continue
+        return 0
+
     def _make_generator(self) -> Generator[array.array, int, None]:
         """
-        Generator that feeds decoded frames to the PlaybackDevice, applying
-        volume and looping. Runs in the audio thread — must not block the main thread.
+        Generator that feeds decoded frames to the PlaybackDevice.
 
-        When paused, yields silence while holding the current decoded frame so
-        playback resumes from the exact same position without re-seeking.
+        Supports pause (yields silence without advancing the decoder),
+        seek (reopens the file at a new position), and looping.
+        Runs in the audio thread — must not block the main thread.
         """
+        seek_to = 0
         while True:
             try:
                 stream = miniaudio.stream_file(
@@ -61,44 +83,56 @@ class TrackStream:
                     nchannels=_NCHANNELS,
                     sample_rate=_SAMPLE_RATE,
                     frames_to_read=_FRAMES_TO_READ,
+                    seek_frame=seek_to,
                 )
-                # Prime the generator before entering the send() loop
+                with self._lock:
+                    self._frames_played = seek_to
+                    self._seek_frame = None
                 frames = next(stream)
+                eof = False
                 while True:
                     with self._lock:
                         if self._stopped:
                             return
                         paused = self._paused
                         vol = self._volume
+                        pending_seek = self._seek_frame
+
+                    if pending_seek is not None:
+                        seek_to = pending_seek
+                        break  # reopen stream at new position
 
                     if paused:
-                        # Yield silence; do NOT advance the file decoder so we
-                        # resume from the exact position where we paused.
+                        # Yield silence without advancing decoder position
                         silence = array.array("h", [0] * len(frames))
                         yield silence
                         continue
 
                     out = _apply_volume(frames, vol)
                     required_frames: int = yield out
+                    with self._lock:
+                        self._frames_played += required_frames
                     try:
                         frames = stream.send(required_frames)
                     except StopIteration:
-                        break   # file exhausted — check loop flag
+                        eof = True
+                        break
             except Exception as exc:
                 self._on_error(str(exc))
                 return
 
-            with self._lock:
-                should_loop = self._loop
-            if not should_loop:
-                self._on_end()
-                return
-            # Loop: fall through to while True and reopen the stream
+            if eof:
+                with self._lock:
+                    should_loop = self._loop
+                if not should_loop:
+                    self._on_end()
+                    return
+                seek_to = 0  # loop: restart from beginning
 
     def start(self) -> None:
         """Open the playback device and start streaming. Called from the main thread."""
+        self._total_frames = self._probe_total_frames()
         gen = self._make_generator()
-        # Prime so the device callback can use send() immediately
         next(gen)
         self._generator = gen
         self._device = miniaudio.PlaybackDevice(
@@ -128,6 +162,19 @@ class TrackStream:
     def is_paused(self) -> bool:
         with self._lock:
             return self._paused
+
+    def seek(self, fraction: float) -> None:
+        """Schedule a seek to a position in [0.0, 1.0]. Thread-safe."""
+        with self._lock:
+            frame = int(max(0.0, min(1.0, fraction)) * self._total_frames)
+            self._seek_frame = frame
+
+    def position_fraction(self) -> float:
+        """Return current playback position as a fraction in [0.0, 1.0]. Thread-safe."""
+        with self._lock:
+            if self._total_frames == 0:
+                return 0.0
+            return min(1.0, self._frames_played / self._total_frames)
 
     def set_volume(self, volume: float) -> None:
         with self._lock:

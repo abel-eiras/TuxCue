@@ -304,6 +304,76 @@ class TestAudioEnginePause:
         assert engine.is_paused("nonexistent") is False
 
 
+class TestAudioEngineSeek:
+    def test_seek_delegates_to_stream(self) -> None:
+        engine = _make_engine()
+        _play_with_mock_start(engine)
+        seek_mock = MagicMock()
+        with patch.object(TrackStream, "seek", seek_mock):
+            engine.seek("t1", 0.5)
+        seek_mock.assert_called_once_with(0.5)
+
+    def test_seek_is_noop_when_not_playing(self) -> None:
+        engine = _make_engine()
+        engine.seek("nonexistent", 0.5)  # must not raise
+
+    def test_get_position_delegates_to_stream(self) -> None:
+        engine = _make_engine()
+        _play_with_mock_start(engine)
+        with patch.object(TrackStream, "position_fraction", return_value=0.75):
+            pos = engine.get_position("t1")
+        assert pos == pytest.approx(0.75)
+
+    def test_get_position_returns_zero_when_not_playing(self) -> None:
+        engine = _make_engine()
+        assert engine.get_position("nonexistent") == pytest.approx(0.0)
+
+
+class TestTrackStreamSeek:
+    def _make_stream(self) -> TrackStream:
+        return TrackStream(
+            path=WAV_FIXTURE,
+            volume=0.8,
+            loop=False,
+            on_end=lambda: None,
+            on_error=lambda msg: None,
+        )
+
+    def test_seek_stores_frame_index(self) -> None:
+        ts = self._make_stream()
+        ts._total_frames = 1000
+        ts.seek(0.5)
+        assert ts._seek_frame == 500
+
+    def test_seek_clamps_above_one(self) -> None:
+        ts = self._make_stream()
+        ts._total_frames = 1000
+        ts.seek(2.0)
+        assert ts._seek_frame == 1000
+
+    def test_seek_clamps_below_zero(self) -> None:
+        ts = self._make_stream()
+        ts._total_frames = 1000
+        ts.seek(-1.0)
+        assert ts._seek_frame == 0
+
+    def test_position_fraction_zero_when_no_frames(self) -> None:
+        ts = self._make_stream()
+        assert ts.position_fraction() == pytest.approx(0.0)
+
+    def test_position_fraction_reflects_played_frames(self) -> None:
+        ts = self._make_stream()
+        ts._total_frames = 1000
+        ts._frames_played = 250
+        assert ts.position_fraction() == pytest.approx(0.25)
+
+    def test_position_fraction_capped_at_one(self) -> None:
+        ts = self._make_stream()
+        ts._total_frames = 100
+        ts._frames_played = 150
+        assert ts.position_fraction() == pytest.approx(1.0)
+
+
 class TestAudioEngineIsPlaying:
     def test_is_playing_false_before_play(self) -> None:
         engine = _make_engine()

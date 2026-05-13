@@ -60,6 +60,14 @@ class IAudioEngine(Protocol):
         """Return True if the stream exists and is currently paused."""
         ...
 
+    def seek(self, track_id: str, fraction: float) -> None:
+        """Seek to position fraction [0.0, 1.0]. No-op if not playing."""
+        ...
+
+    def get_position(self, track_id: str) -> float:
+        """Return playback position as a fraction [0.0, 1.0]."""
+        ...
+
     def is_playing(self, track_id: str) -> bool:
         """Return True if a stream for track_id is currently active."""
         ...

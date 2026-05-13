@@ -22,6 +22,7 @@ _HEADER_KEYS = {
     2: "col_play",
     3: "col_loop",
     4: "col_volume",
+    5: "col_seek",
 }
 
 
@@ -31,6 +32,7 @@ class Column(IntEnum):
     PLAY = 2
     LOOP = 3
     VOLUME = 4
+    SEEK = 5
 
 
 class TrackRole:
@@ -41,6 +43,7 @@ class TrackRole:
     DurationS = Qt.UserRole + 5   # float
     MissingFile = Qt.UserRole + 6  # bool
     PauseState = Qt.UserRole + 7   # bool — paused (only meaningful when PlayState=True)
+    SeekPos = Qt.UserRole + 8      # float [0.0, 1.0] — current playback position
 
 
 _MIME_TYPE = "application/x-tuxcue-row"
@@ -57,6 +60,7 @@ class TrackTableModel(QAbstractTableModel):
         self._tracks: list[Track] = []
         self._play_states: dict[str, bool] = {}
         self._pause_states: dict[str, bool] = {}
+        self._seek_positions: dict[str, float] = {}
 
     # ------------------------------------------------------------------
     # Required QAbstractTableModel overrides
@@ -103,6 +107,8 @@ class TrackTableModel(QAbstractTableModel):
             return self._play_states.get(track.id, False)
         if role == TrackRole.PauseState:
             return self._pause_states.get(track.id, False)
+        if role == TrackRole.SeekPos:
+            return self._seek_positions.get(track.id, 0.0)
         if role == TrackRole.LoopState:
             return track.loop
         if role == TrackRole.Volume:
@@ -128,6 +134,8 @@ class TrackTableModel(QAbstractTableModel):
             return "↺" if track.loop else ""
         if col == Column.VOLUME:
             return f"{int(track.volume * 100)}%"
+        if col == Column.SEEK:
+            return ""
         return None
 
     def setData(
@@ -182,6 +190,7 @@ class TrackTableModel(QAbstractTableModel):
                 self._tracks.pop(i)
                 self._play_states.pop(track_id, None)
                 self._pause_states.pop(track_id, None)
+                self._seek_positions.pop(track_id, None)
                 self.endRemoveRows()
                 return
 
@@ -192,6 +201,14 @@ class TrackTableModel(QAbstractTableModel):
     def set_pause_state(self, track_id: str, paused: bool) -> None:
         self._pause_states[track_id] = paused
         self._notify_play_column(track_id)
+
+    def set_seek_pos(self, track_id: str, fraction: float) -> None:
+        self._seek_positions[track_id] = fraction
+        for row, track in enumerate(self._tracks):
+            if track.id == track_id:
+                idx = self.index(row, Column.SEEK)
+                self.dataChanged.emit(idx, idx, [TrackRole.SeekPos])
+                return
 
     def _notify_play_column(self, track_id: str) -> None:
         for row, track in enumerate(self._tracks):
