@@ -3,10 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, Qt, QTimer
-from PySide6.QtGui import QAction, QActionGroup
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QToolBar,
     QVBoxLayout,
@@ -23,6 +24,8 @@ from src.gui.track_table_model import Column, TrackRole, TrackTableModel
 from src.gui.track_table_view import TrackTableView
 from src.i18n import get_locale, set_locale, tr
 from src.i18n.strings import SUPPORTED_LOCALES
+
+_MAX_RECENT = 8
 
 
 class MainWindow(QMainWindow):
@@ -45,6 +48,7 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._build_menu()
         self._build_toolbar()
+        self._build_shortcuts()
         self._connect_signals()
         self._pos_timer = QTimer(self)
         self._pos_timer.setInterval(100)
@@ -65,6 +69,10 @@ class MainWindow(QMainWindow):
         menu.addAction(tr("menu_open"), self._on_open, "Ctrl+O")
         menu.addAction(tr("menu_save"), self._on_save, "Ctrl+S")
         menu.addAction(tr("menu_save_as"), self._on_save_as, "Ctrl+Shift+S")
+        menu.addSeparator()
+
+        self._recent_menu: QMenu = menu.addMenu(tr("menu_recent"))
+        self._rebuild_recent_menu()
 
         settings_menu = self.menuBar().addMenu(tr("menu_settings"))
         lang_menu = settings_menu.addMenu(tr("menu_language"))
@@ -85,6 +93,11 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
         stop_all_action = toolbar.addAction(tr("toolbar_stop_all"))
         stop_all_action.triggered.connect(self._on_stop_all)
+
+    def _build_shortcuts(self) -> None:
+        for n in range(1, 10):
+            sc = QShortcut(QKeySequence(f"Ctrl+{n}"), self)
+            sc.activated.connect(lambda _n=n: self._on_track_hotkey(_n))
 
     def _connect_signals(self) -> None:
         self._filter_bar.text_changed.connect(self._proxy.setFilterFixedString)
@@ -124,6 +137,47 @@ class MainWindow(QMainWindow):
         self._controller.track_error.connect(self._on_track_error)
         self._view.files_dropped.connect(self._on_files_dropped)
         self._view.seek_delegate.seek_requested.connect(self._on_seek)
+
+    # ── Recent files ─────────────────────────────────────────────────────────
+
+    def _rebuild_recent_menu(self) -> None:
+        self._recent_menu.clear()
+        config = load_config()
+        recent: list[str] = list(config.get("recent_files", []))  # type: ignore[arg-type]
+        if not recent:
+            empty_action = self._recent_menu.addAction(tr("menu_recent_empty"))
+            empty_action.setEnabled(False)
+            return
+        for file_str in recent:
+            path = Path(file_str)
+            action = self._recent_menu.addAction(path.name)
+            action.setToolTip(str(path))
+            action.setData(str(path))
+            action.triggered.connect(lambda checked=False, p=path: self._load_session(p))
+
+    def _update_recent(self, path: Path) -> None:
+        config = load_config()
+        recent: list[str] = list(config.get("recent_files", []))  # type: ignore[arg-type]
+        path_str = str(path)
+        if path_str in recent:
+            recent.remove(path_str)
+        recent.insert(0, path_str)
+        config["recent_files"] = recent[:_MAX_RECENT]
+        save_config(config)
+        self._rebuild_recent_menu()
+
+    # ── Hotkeys ───────────────────────────────────────────────────────────────
+
+    def _on_track_hotkey(self, n: int) -> None:
+        row = n - 1
+        if row >= self._proxy.rowCount():
+            return
+        idx = self._proxy.index(row, 0)
+        track_id: str = idx.data(TrackRole.TrackId)
+        if track_id:
+            self._on_play_stop(track_id)
+
+    # ── Signals ───────────────────────────────────────────────────────────────
 
     def _on_language_changed(self, action: object) -> None:
         if not isinstance(action, QAction):
@@ -225,6 +279,7 @@ class MainWindow(QMainWindow):
                 track.duration_s = probe_duration(track.path)
             self._model.add_track(track)
         self._session_path = path
+        self._update_recent(path)
         if errors:
             QMessageBox.warning(self, tr("dlg_missing_title"), "\n".join(errors))
 
@@ -251,3 +306,4 @@ class MainWindow(QMainWindow):
         tracks = [self._model.get_track(tid) for tid in self._model.all_track_ids()]
         valid = [t for t in tracks if t is not None]
         session_manager.save(valid, path)
+        self._update_recent(path)
