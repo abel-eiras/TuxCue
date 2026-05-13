@@ -45,12 +45,13 @@ class TrackTableView(QTableView):
     def _setup_columns(self) -> None:
         from PySide6.QtWidgets import QHeaderView
         header = self.horizontalHeader()
-        header.setSectionResizeMode(Column.NAME, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(Column.NAME, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(Column.DURATION, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.PLAY, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.LOOP, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.VOLUME, QHeaderView.ResizeMode.Fixed)
         header.setSectionResizeMode(Column.SEEK, QHeaderView.ResizeMode.Stretch)
+        self.setColumnWidth(Column.NAME, 150)
         self.setColumnWidth(Column.DURATION, 80)
         self.setColumnWidth(Column.PLAY, 50)
         self.setColumnWidth(Column.LOOP, 50)
