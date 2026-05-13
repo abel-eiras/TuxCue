@@ -279,3 +279,120 @@ este flag en las pistas con fichero ausente. `TrackTableModel._resolve_data()` d
 **Lección:** El diálogo de error informa al abrir la sesión, pero desaparece. La marca
 visual en la fila informa de forma persistente durante toda la sesión. Ambos son
 complementarios, no alternativos.
+
+---
+
+## Fase 2 — Pausa / Reanudación
+
+### [2026-05-13] Pausa implementada como silencio en el generador, no como parada del dispositivo
+
+**Contexto:** Se añadió pausa/reanudación al reproductor. La opción obvia era llamar
+a `PlaybackDevice.stop()` y volver a abrirlo en `resume()`, lo que equivale a una
+parada y rearranque completo del stream.
+
+**Decisión:** En lugar de detener el dispositivo, el generador detecta el flag `_paused`
+y devuelve un bloque de silencio (`array("h", [0] * len(frames))`) sin avanzar
+`_frames_played` ni llamar a `stream.send()` sobre el decodificador.
+
+**Razonamiento:**
+- Detener y reabrir `PlaybackDevice` introduce latencia audible (~10–50 ms) y obliga
+  a reapertura del fichero de audio, lo que es más costoso.
+- El generador ya es el punto de control del audio; añadir un check `if _paused` al
+  inicio del bucle interno es O(1) y sin efectos secundarios.
+- `_frames_played` no avanza durante la pausa, por lo que `position_fraction()` refleja
+  la posición correcta al reanudar.
+
+**Lección:** Para pausar un stream basado en generadores de miniaudio, devolver silencio
+es más limpio y eficiente que detener y reabrir el dispositivo. El dispositivo sigue
+activo (evita glitches de reapertura) pero la señal de salida es cero.
+
+---
+
+### [2026-05-13] Ciclo ▶ → ⏸ → ▶(pausa) en lugar de Play/Stop binario
+
+**Contexto:** Al diseñar la UX de pausa, se evaluó añadir un botón separado (▶ / ⏸ / ■)
+frente a reutilizar el botón Play con comportamiento cíclico.
+
+**Decisión:** El botón PLAY implementa un ciclo de tres estados:
+detenido (▶) → reproduciendo (⏸) → en pausa (▶ sunken) → reproduciendo (⏸).
+
+**Razonamiento:**
+- Añadir un botón de pausa separado consumiría una columna extra o requeriría cambiar
+  el diseño de la tabla, que ya tiene 6 columnas.
+- El ciclo de tres estados es coherente con reproductores de referencia (VLC, etc.).
+- `MainWindow._on_play_stop()` lee `is_playing()` + `is_paused()` para decidir la acción;
+  la lógica está centralizada en un único punto.
+
+**Lección:** Antes de añadir un nuevo control visual, evaluar si un control existente
+puede extenderse con un tercer estado. El criterio es que el ciclo sea predecible para
+el usuario, no que sea técnicamente elegante.
+
+---
+
+## Fase 3 — Seek Slider
+
+### [2026-05-13] Seek implementado como restart del generador en posición arbitraria
+
+**Contexto:** miniaudio no expone una API directa de seek sobre un `PlaybackDevice`
+en marcha. Se evaluaron tres opciones:
+1. Detener y reabrir el stream desde la posición deseada.
+2. Mantener el generador activo y "quemar" frames hasta llegar a la posición.
+3. Señalizar al generador para que se reinicie internamente con `seek_frame`.
+
+**Decisión:** Opción 3. El generador detecta `_seek_frame is not None` al inicio del
+bucle externo, rompe el bucle interno y reabre `miniaudio.stream_file(seek_frame=N)`.
+
+**Razonamiento:**
+- La opción 1 introduce una interrupción audible al cerrar y reabrir el dispositivo.
+- La opción 2 ("quemar" frames) consume CPU innecesariamente y no es instantánea para
+  ficheros largos.
+- La opción 3 reusa la misma `PlaybackDevice` activa; solo el decodificador interno
+  se reinicia. La latencia audible es imperceptible.
+
+**Lección:** En generadores de audio basados en miniaudio, el seek se puede implementar
+limpiamente reiniciando el iterador `stream_file` dentro del mismo generador, sin
+necesidad de cerrar el dispositivo de salida.
+
+---
+
+### [2026-05-13] Posición de reproducción via polling (QTimer 100 ms) en lugar de callbacks
+
+**Contexto:** Para actualizar el seek slider mientras la pista suena, se necesita
+propagar la posición de reproducción desde el hilo de audio al hilo de la GUI.
+
+**Opciones consideradas:**
+1. Que el hilo de audio emita un callback por cada chunk (≈cada 23 ms a 44100 Hz, 1024 frames).
+2. Que la GUI sondee la posición a intervalos regulares con un `QTimer`.
+
+**Decisión:** Opción 2. `MainWindow` tiene un `QTimer(100 ms)` que llama a
+`AudioController.get_position(track_id)` para cada pista activa.
+
+**Razonamiento:**
+- La opción 1 generaría ~43 callbacks/segundo por pista activa + el overhead de
+  `Qt.QueuedConnection` para cada uno. Con 8 pistas simultáneas son >340 eventos/s
+  en la cola de eventos Qt, lo que degrada la fluidez de la UI.
+- La opción 2 genera exactamente 10 eventos/s independientemente del número de pistas.
+  A 100 ms de resolución, el slider se actualiza con suavidad suficiente para uso teatral.
+- `_frames_played` es un entero Python que el hilo de audio escribe y el hilo principal
+  lee; la lectura es atómica en CPython (GIL), por lo que no se necesita lock adicional.
+
+**Lección:** Para métricas de progreso en tiempo real, el polling periódico desde la GUI
+es más eficiente y simple que callbacks por evento cuando la frecuencia de actualización
+visual necesaria (10 Hz) es mucho menor que la frecuencia de generación de eventos (43 Hz).
+
+---
+
+### [2026-05-13] VolumeSliderDelegate: editorEvent() en lugar de createEditor()
+
+**Contexto:** (Registrado retroactivamente desde pruebas en VM de 2026-05-12.)
+La implementación original de `VolumeSliderDelegate` usaba `createEditor()`/`setEditorData()`/
+`setModelData()`, que es el flujo estándar de Qt para celdas editables con widget propio.
+
+**Problema:** En una celda pintada inline con `paint()`, Qt nunca llama a `createEditor()`
+a menos que el usuario active el modo edición (doble clic o F2). Un slider no necesita modo edición.
+
+**Resolución:** Se eliminó el trío `createEditor`/`setEditorData`/`setModelData` y se
+reemplazó por `editorEvent()`, que intercepta `MouseButtonPress` y `MouseMove` directamente.
+
+**Lección:** Para delegates de control inline (sliders, botones pintados): `editorEvent()`.
+Para delegates con widget emergente (QDateEdit, QComboBox): `createEditor()`. No mezclar.
