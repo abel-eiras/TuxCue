@@ -4,7 +4,7 @@ import base64
 from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, Qt, QTimer
-from PySide6.QtGui import QAction, QActionGroup, QFont, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -347,10 +347,8 @@ class MainWindow(QMainWindow):
 
     def _apply_font_scale(self) -> None:
         size = max(6, self._base_font_size + self._font_scale)
-        font: QFont = QApplication.instance().font()
-        font.setPointSize(size)
-        QApplication.instance().setFont(font)
-        self.setFont(font)  # propagate to all existing child widgets
+        # setFont() is ignored by GTK-themed Qt on Linux; stylesheet overrides the platform theme
+        QApplication.instance().setStyleSheet(f"* {{ font-size: {size}pt; }}")
         row_h = max(16, 24 + self._font_scale * 2)
         if hasattr(self, "_view"):
             self._view.verticalHeader().setDefaultSectionSize(row_h)
