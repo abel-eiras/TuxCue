@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, Qt, QTimer
@@ -42,6 +43,7 @@ class MainWindow(QMainWindow):
 
         self._view = TrackTableView()
         self._view.setModel(self._proxy)
+        self._restore_column_state()
 
         self._filter_bar = FilterBar()
 
@@ -140,7 +142,7 @@ class MainWindow(QMainWindow):
         self._view.files_dropped.connect(self._on_files_dropped)
         self._view.seek_delegate.seek_requested.connect(self._on_seek)
 
-    # ── Recent files ─────────────────────────────────────────────────────────
+    # ── Recent files ────────────────────────────────────────────────────────────────────
 
     def _rebuild_recent_menu(self) -> None:
         self._recent_menu.clear()
@@ -168,7 +170,7 @@ class MainWindow(QMainWindow):
         save_config(config)
         self._rebuild_recent_menu()
 
-    # ── Hotkeys ───────────────────────────────────────────────────────────────
+    # ── Hotkeys ────────────────────────────────────────────────────────────────────────
 
     def _on_track_hotkey(self, n: int) -> None:
         row = n - 1
@@ -188,7 +190,7 @@ class MainWindow(QMainWindow):
         if track_id and self._controller.is_playing(track_id):
             self._controller.stop(track_id)
 
-    # ── Signals ───────────────────────────────────────────────────────────────
+    # ── Signals ─────────────────────────────────────────────────────────────────────────
 
     def _on_language_changed(self, action: object) -> None:
         if not isinstance(action, QAction):
@@ -322,3 +324,21 @@ class MainWindow(QMainWindow):
         valid = [t for t in tracks if t is not None]
         session_manager.save(valid, path)
         self._update_recent(path)
+
+    # ── Column state persistence ──────────────────────────────────────────────────────
+
+    def _restore_column_state(self) -> None:
+        config = load_config()
+        state_b64: str = config.get("column_state", "")  # type: ignore[assignment]
+        if state_b64:
+            self._view.horizontalHeader().restoreState(base64.b64decode(state_b64))
+
+    def _save_column_state(self) -> None:
+        config = load_config()
+        state_bytes = bytes(self._view.horizontalHeader().saveState())
+        config["column_state"] = base64.b64encode(state_bytes).decode()
+        save_config(config)
+
+    def closeEvent(self, event: object) -> None:
+        self._save_column_state()
+        super().closeEvent(event)  # type: ignore[misc]
