@@ -5,7 +5,7 @@ from pathlib import Path
 
 _CONFIG_DIR = Path.home() / ".config" / "tuxcue"
 _CONFIG_FILE = _CONFIG_DIR / "config.json"
-_DEFAULTS: dict[str, object] = {"language": "es"}
+_DEFAULTS: dict[str, object] = {"language": "es", "recent_files": []}
 
 
 def load() -> dict[str, object]:

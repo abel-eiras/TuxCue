@@ -9,6 +9,7 @@ from src.config import load as load_config
 from src.core.audio_controller import AudioController
 from src.gui.main_window import MainWindow
 from src.i18n import set_locale
+from src.theme import apply_dark_theme
 
 _ICON = Path(__file__).parent / "docs" / "icon.png"
 
@@ -18,6 +19,7 @@ def main() -> None:
     set_locale(str(config.get("language", "es")))
 
     app = QApplication(sys.argv)
+    apply_dark_theme(app)
     if _ICON.exists():
         app.setWindowIcon(QIcon(str(_ICON)))
 
