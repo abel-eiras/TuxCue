@@ -3,6 +3,7 @@
 <p align="center">
   <img src="docs/logo.webp" alt="TuxCue" width="420"/>
 </p>
+![TuxCue](docs/logo.webp)
 
 Un reproductor de audio para regidores y técnicos de sonido en producciones teatrales. Sin florituras, sin secuenciación automática, sin las mil funciones que no vas a usar. Solo tus pistas, tus cues y control total sobre cada una de ellas.
 
