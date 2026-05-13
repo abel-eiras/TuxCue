@@ -14,7 +14,7 @@ echo "  TuxCue V1 — Instalación"
 echo "════════════════════════════════════════"
 echo ""
 
-# ── 1. Python 3.11+ ──────────────────────────────────────
+# ── 1. Python 3.11+ ────────────────────────────────────────────────────────────────────
 PYTHON=""
 for cmd in python3.12 python3.11 python3; do
     if command -v "$cmd" &>/dev/null; then
@@ -45,11 +45,11 @@ if [[ -z "$PYTHON" ]]; then
     ok "Python con venv instalado: $($PYTHON --version)"
 fi
 
-# ── 2. Dependencias del sistema ───────────────────────────────────
+# ── 2. Dependencias del sistema ─────────────────────────────────────────────────
 echo ""
 echo "Instalando dependencias del sistema..."
 sudo apt-get update -q
-sudo apt-get install -y \
+if sudo apt-get install -y \
     git \
     libegl1 \
     libgl1 \
@@ -65,11 +65,13 @@ sudo apt-get install -y \
     libxcb-shape0 \
     libxcb-xinerama0 \
     libxcb-xkb1 \
-    pulseaudio \
-    2>/dev/null || true
-ok "Dependencias del sistema instaladas"
+    pulseaudio; then
+    ok "Dependencias del sistema instaladas"
+else
+    warn "Algunas dependencias del sistema no se pudieron instalar — la app puede no funcionar"
+fi
 
-# ── 3. Entorno virtual ──────────────────────────────────────────
+# ── 3. Entorno virtual ─────────────────────────────────────────────────────────────────
 echo ""
 VENV_DIR="$(pwd)/.venv"
 # Reuse only if the venv is valid (activate script exists)
@@ -89,13 +91,13 @@ fi
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip --quiet
 
-# ── 4. Dependencias Python ────────────────────────────────────────────
+# ── 4. Dependencias Python ────────────────────────────────────────────────────────────────────
 echo ""
 echo "Instalando PySide6 y miniaudio (puede tardar 1-2 minutos)..."
 pip install "PySide6>=6.6" "miniaudio>=1.60" --quiet
 ok "PySide6 y miniaudio instalados"
 
-# ── 5. Verificación: tests ──────────────────────────────────────────
+# ── 5. Verificación: tests ────────────────────────────────────────────────────────────────────
 echo ""
 echo "Ejecutando tests de verificación..."
 pip install pytest --quiet
@@ -105,7 +107,7 @@ else
     warn "Algunos tests fallaron (puede ser normal si PySide6-stubs no está instalado)"
 fi
 
-# ── 6. Lanzador ───────────────────────────────────────────────
+# ── 6. Lanzador ───────────────────────────────────────────────────────────────────────
 APP_DIR="$(pwd)"
 DESKTOP_DIR=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
 APPS_DIR="$HOME/.local/share/applications"
@@ -151,7 +153,7 @@ gio set "$DESKTOP_DIR/TuxCue.desktop" metadata::trusted true 2>/dev/null || true
 
 ok "Lanzador creado en escritorio y menú Multimedia"
 
-# ── Resumen ──────────────────────────────────────────────────
+# ── Resumen ───────────────────────────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════"
 echo -e "  ${GREEN}Instalación completada${NC}"

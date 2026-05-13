@@ -178,6 +178,20 @@ class TestAudioEngineStopAll:
         engine = _make_engine()
         engine.stop_all()  # must not raise
 
+    def test_stop_all_does_not_deadlock(self) -> None:
+        import threading
+
+        engine = _make_engine()
+        _play_with_mock_start(engine, track_id="t1")
+        _play_with_mock_start(engine, track_id="t2")
+
+        with patch.object(TrackStream, "stop", lambda self: None):
+            thread = threading.Thread(target=engine.stop_all)
+            thread.start()
+            thread.join(timeout=1.0)
+
+        assert not thread.is_alive(), "stop_all() deadlocked — for loop must be outside the lock"
+
 
 class TestAudioEngineSetVolume:
     def test_set_volume_delegates_to_stream(self) -> None:
