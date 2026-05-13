@@ -132,7 +132,6 @@ El motor de audio (`src/audio`) no importa Qt en absoluto. El `AudioController` 
 | Versión | Estado | Qué incluye |
 |---------|--------|--------------|
 | **V1.0** | ✅ Listo | Cartwall completo: polifonía, filtros, drag & drop, sesiones |
-| **V1.1** | 🔜 Próximo | VU meter global, waveform thumbnail por pista, exportar lista de cues |
 | **V2.0** | 💭 Futuro | Línea de tiempo (mini-DAW), automatización de volumen, grupos/buses |
 
 ---
