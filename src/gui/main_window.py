@@ -4,8 +4,9 @@ import base64
 from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, Qt, QTimer
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QActionGroup, QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QMainWindow,
     QMenu,
@@ -34,6 +35,11 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self._controller = controller
         self._session_path: Path | None = None
+
+        app_font = QApplication.instance().font()
+        self._base_font_size: int = app_font.pointSize() if app_font.pointSize() > 0 else 9
+        self._font_scale: int = int(load_config().get("font_scale", 0))  # type: ignore[arg-type]
+        self._apply_font_scale()
 
         self._model = TrackTableModel(self)
         self._proxy = TrackFilterProxyModel(self)
@@ -102,6 +108,10 @@ class MainWindow(QMainWindow):
             sc.activated.connect(lambda _n=n: self._on_track_hotkey(_n))
             sc_stop = QShortcut(QKeySequence(f"Ctrl+Shift+{n}"), self)
             sc_stop.activated.connect(lambda _n=n: self._on_track_stop_hotkey(_n))
+        QShortcut(QKeySequence("Ctrl++"), self).activated.connect(lambda: self._zoom(+1))
+        QShortcut(QKeySequence("Ctrl+="), self).activated.connect(lambda: self._zoom(+1))
+        QShortcut(QKeySequence("Ctrl+-"), self).activated.connect(lambda: self._zoom(-1))
+        QShortcut(QKeySequence("Ctrl+0"), self).activated.connect(lambda: self._zoom_reset())
 
     def _connect_signals(self) -> None:
         self._filter_bar.text_changed.connect(self._proxy.setFilterFixedString)
@@ -142,7 +152,7 @@ class MainWindow(QMainWindow):
         self._view.files_dropped.connect(self._on_files_dropped)
         self._view.seek_delegate.seek_requested.connect(self._on_seek)
 
-    # ── Recent files ────────────────────────────────────────────────────────────────────
+    # ── Recent files ───────────────────────────────────────────────────────────────────────────────────
 
     def _rebuild_recent_menu(self) -> None:
         self._recent_menu.clear()
@@ -170,7 +180,7 @@ class MainWindow(QMainWindow):
         save_config(config)
         self._rebuild_recent_menu()
 
-    # ── Hotkeys ────────────────────────────────────────────────────────────────────────
+    # ── Hotkeys ───────────────────────────────────────────────────────────────────────────
 
     def _on_track_hotkey(self, n: int) -> None:
         row = n - 1
@@ -190,7 +200,7 @@ class MainWindow(QMainWindow):
         if track_id and self._controller.is_playing(track_id):
             self._controller.stop(track_id)
 
-    # ── Signals ─────────────────────────────────────────────────────────────────────────
+    # ── Signals ──────────────────────────────────────────────────────────────────────────
 
     def _on_language_changed(self, action: object) -> None:
         if not isinstance(action, QAction):
@@ -325,7 +335,26 @@ class MainWindow(QMainWindow):
         session_manager.save(valid, path)
         self._update_recent(path)
 
-    # ── Column state persistence ──────────────────────────────────────────────────────
+    # ── Zoom ─────────────────────────────────────────────────────────────────────────────
+
+    def _zoom(self, delta: int) -> None:
+        self._font_scale = max(-3, min(10, self._font_scale + delta))
+        self._apply_font_scale()
+
+    def _zoom_reset(self) -> None:
+        self._font_scale = 0
+        self._apply_font_scale()
+
+    def _apply_font_scale(self) -> None:
+        size = max(6, self._base_font_size + self._font_scale)
+        font: QFont = QApplication.instance().font()
+        font.setPointSize(size)
+        QApplication.instance().setFont(font)
+        row_h = max(16, 24 + self._font_scale * 2)
+        if hasattr(self, "_view"):
+            self._view.verticalHeader().setDefaultSectionSize(row_h)
+
+    # ── Column state persistence ──────────────────────────────────────────────────────────────────
 
     def _restore_column_state(self) -> None:
         config = load_config()
@@ -337,6 +366,7 @@ class MainWindow(QMainWindow):
         config = load_config()
         state_bytes = bytes(self._view.horizontalHeader().saveState())
         config["column_state"] = base64.b64encode(state_bytes).decode()
+        config["font_scale"] = self._font_scale
         save_config(config)
 
     def closeEvent(self, event: object) -> None:
