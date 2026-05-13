@@ -37,4 +37,5 @@ class Track:
             volume=volume,
             loop=self.loop,
             duration_s=self.duration_s,
+            missing_file=self.missing_file,
         )

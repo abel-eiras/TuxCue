@@ -15,6 +15,8 @@ def probe_duration(path: Path) -> float:
     ]:
         try:
             info = probe(str(path))
+            if info.sample_rate == 0:
+                continue
             return info.num_frames / info.sample_rate
         except Exception:
             continue

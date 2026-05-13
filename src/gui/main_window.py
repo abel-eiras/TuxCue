@@ -164,6 +164,7 @@ class MainWindow(QMainWindow):
             )
             if reply != QMessageBox.StandardButton.Yes:
                 return
+        self._controller.stop_all()
         for tid in list(self._model.all_track_ids()):
             self._model.remove_track(tid)
         self._session_path = None
@@ -180,10 +181,12 @@ class MainWindow(QMainWindow):
         from src.audio.probe import probe_duration
         from src.core import session as session_manager
         tracks, errors = session_manager.load(path)
+        self._controller.stop_all()
         for tid in list(self._model.all_track_ids()):
             self._model.remove_track(tid)
         for track in tracks:
-            track.duration_s = probe_duration(track.path)
+            if not track.missing_file:
+                track.duration_s = probe_duration(track.path)
             self._model.add_track(track)
         self._session_path = path
         if errors:
