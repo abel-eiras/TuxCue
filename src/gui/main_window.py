@@ -350,6 +350,7 @@ class MainWindow(QMainWindow):
         font: QFont = QApplication.instance().font()
         font.setPointSize(size)
         QApplication.instance().setFont(font)
+        self.setFont(font)  # propagate to all existing child widgets
         row_h = max(16, 24 + self._font_scale * 2)
         if hasattr(self, "_view"):
             self._view.verticalHeader().setDefaultSectionSize(row_h)
