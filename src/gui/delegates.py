@@ -105,7 +105,6 @@ class SeekSliderDelegate(QStyledItemDelegate):
         index: QModelIndex | QPersistentModelIndex,
     ) -> None:
         pos: float = index.data(TrackRole.SeekPos) or 0.0
-        is_playing: bool = index.data(TrackRole.PlayState) or False
         opt = QStyleOptionSlider()
         opt.rect = option.rect
         opt.minimum = 0
@@ -115,8 +114,6 @@ class SeekSliderDelegate(QStyledItemDelegate):
         opt.orientation = Qt.Horizontal
         opt.subControls = QStyle.SC_SliderGroove | QStyle.SC_SliderHandle
         opt.activeSubControls = QStyle.SC_None
-        if not is_playing:
-            opt.state &= ~QStyle.State_Enabled
         QApplication.style().drawComplexControl(QStyle.CC_Slider, opt, painter)
 
     def editorEvent(
@@ -131,8 +128,6 @@ class SeekSliderDelegate(QStyledItemDelegate):
             event.type() in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseMove)
             and event.buttons() & Qt.MouseButton.LeftButton
         ):
-            if not (index.data(TrackRole.PlayState) or False):
-                return False
             rect = option.rect
             x = max(0, min(int(event.position().x()) - rect.left(), rect.width()))
             fraction = x / rect.width() if rect.width() > 0 else 0.0

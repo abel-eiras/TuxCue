@@ -45,7 +45,9 @@ class AudioController(QObject):
     # Public API — called by the GUI layer
     # ------------------------------------------------------------------
 
-    def play(self, track_id: str, path: Path, volume: float, loop: bool) -> None:
+    def play(
+        self, track_id: str, path: Path, volume: float, loop: bool, start_pos: float = 0.0
+    ) -> None:
         """Request playback of track_id. Ignored if already playing."""
         self._engine.play(
             track_id=track_id,
@@ -55,6 +57,7 @@ class AudioController(QObject):
             on_start=self._on_start,
             on_end=self._on_end,
             on_error=self._on_error,
+            start_fraction=start_pos,
         )
 
     def stop(self, track_id: str) -> None:

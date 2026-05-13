@@ -16,6 +16,7 @@ class Track:
     loop: bool = False
     duration_s: float = 0.0
     missing_file: bool = False
+    cue_pos: float = 0.0  # start offset for next play [0.0, 1.0]
 
     def __post_init__(self) -> None:
         self.volume = max(0.0, min(1.0, self.volume))
@@ -38,4 +39,5 @@ class Track:
             loop=self.loop,
             duration_s=self.duration_s,
             missing_file=self.missing_file,
+            cue_pos=self.cue_pos,
         )

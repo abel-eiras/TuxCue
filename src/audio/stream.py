@@ -45,6 +45,7 @@ class TrackStream:
         self._seek_frame: int | None = None
         self._frames_played: int = 0
         self._total_frames: int = 0
+        self._initial_frame: int = 0
         self._device: miniaudio.PlaybackDevice | None = None
         self._generator: Generator[array.array, int, None] | None = None
 
@@ -74,7 +75,7 @@ class TrackStream:
         seek (reopens the file at a new position), and looping.
         Runs in the audio thread — must not block the main thread.
         """
-        seek_to = 0
+        seek_to = self._initial_frame
         while True:
             try:
                 stream = miniaudio.stream_file(
@@ -129,9 +130,10 @@ class TrackStream:
                     return
                 seek_to = 0  # loop: restart from beginning
 
-    def start(self) -> None:
+    def start(self, start_fraction: float = 0.0) -> None:
         """Open the playback device and start streaming. Called from the main thread."""
         self._total_frames = self._probe_total_frames()
+        self._initial_frame = int(max(0.0, min(1.0, start_fraction)) * self._total_frames)
         gen = self._make_generator()
         next(gen)
         self._generator = gen

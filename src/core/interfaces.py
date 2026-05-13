@@ -28,6 +28,7 @@ class IAudioEngine(Protocol):
         on_start: Callable[[str], None],
         on_end: Callable[[str], None],
         on_error: Callable[[str, str], None],
+        start_fraction: float = 0.0,
     ) -> None:
         """Open and start a stream for track_id. No-op if already playing."""
         ...
