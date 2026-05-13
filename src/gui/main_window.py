@@ -98,6 +98,8 @@ class MainWindow(QMainWindow):
         for n in range(1, 10):
             sc = QShortcut(QKeySequence(f"Ctrl+{n}"), self)
             sc.activated.connect(lambda _n=n: self._on_track_hotkey(_n))
+            sc_stop = QShortcut(QKeySequence(f"Ctrl+Shift+{n}"), self)
+            sc_stop.activated.connect(lambda _n=n: self._on_track_stop_hotkey(_n))
 
     def _connect_signals(self) -> None:
         self._filter_bar.text_changed.connect(self._proxy.setFilterFixedString)
@@ -176,6 +178,15 @@ class MainWindow(QMainWindow):
         track_id: str = idx.data(TrackRole.TrackId)
         if track_id:
             self._on_play_stop(track_id)
+
+    def _on_track_stop_hotkey(self, n: int) -> None:
+        row = n - 1
+        if row >= self._proxy.rowCount():
+            return
+        idx = self._proxy.index(row, 0)
+        track_id: str = idx.data(TrackRole.TrackId)
+        if track_id and self._controller.is_playing(track_id):
+            self._controller.stop(track_id)
 
     # ── Signals ───────────────────────────────────────────────────────────────
 

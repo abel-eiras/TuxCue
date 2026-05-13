@@ -6,13 +6,33 @@ from PySide6.QtCore import QModelIndex, QObject, QPersistentModelIndex, Qt, Sign
 from PySide6.QtGui import QMouseEvent, QPainter
 from PySide6.QtWidgets import (
     QApplication,
+    QLineEdit,
     QStyle,
     QStyledItemDelegate,
     QStyleOptionButton,
     QStyleOptionSlider,
+    QWidget,
 )
 
 from src.gui.track_table_model import TrackRole
+
+
+def _fmt_time(seconds: float) -> str:
+    total_s = max(0, int(seconds))
+    m, s = divmod(total_s, 60)
+    return f"{m}:{s:02d}"
+
+
+def _parse_time(text: str) -> float | None:
+    """Parse 'M:SS' or plain seconds into a float. Returns None if invalid."""
+    text = text.strip()
+    try:
+        if ":" in text:
+            m_str, s_str = text.split(":", 1)
+            return int(m_str) * 60 + float(s_str)
+        return float(text)
+    except (ValueError, IndexError):
+        return None
 
 
 class PlayButtonDelegate(QStyledItemDelegate):
@@ -105,6 +125,8 @@ class SeekSliderDelegate(QStyledItemDelegate):
         index: QModelIndex | QPersistentModelIndex,
     ) -> None:
         pos: float = index.data(TrackRole.SeekPos) or 0.0
+        duration_s: float = index.data(TrackRole.DurationS) or 0.0
+
         opt = QStyleOptionSlider()
         opt.rect = option.rect
         opt.minimum = 0
@@ -115,6 +137,56 @@ class SeekSliderDelegate(QStyledItemDelegate):
         opt.subControls = QStyle.SC_SliderGroove | QStyle.SC_SliderHandle
         opt.activeSubControls = QStyle.SC_None
         QApplication.style().drawComplexControl(QStyle.CC_Slider, opt, painter)
+
+        if duration_s > 0:
+            current_s = pos * duration_s
+            text = f"{_fmt_time(current_s)} / {_fmt_time(duration_s)}"
+            painter.save()
+            painter.setPen(option.palette.text().color())
+            painter.drawText(option.rect, Qt.AlignCenter | Qt.AlignVCenter, text)
+            painter.restore()
+
+    def createEditor(
+        self,
+        parent: QWidget,
+        option: Any,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> QWidget:
+        editor = QLineEdit(parent)
+        editor.setAlignment(Qt.AlignCenter)
+        editor.setPlaceholderText("M:SS")
+        return editor
+
+    def setEditorData(
+        self,
+        editor: QWidget,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> None:
+        if not isinstance(editor, QLineEdit):
+            return
+        pos: float = index.data(TrackRole.SeekPos) or 0.0
+        duration_s: float = index.data(TrackRole.DurationS) or 0.0
+        editor.setText(_fmt_time(pos * duration_s))
+        editor.selectAll()
+
+    def setModelData(
+        self,
+        editor: QWidget,
+        model: Any,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> None:
+        if not isinstance(editor, QLineEdit):
+            return
+        duration_s: float = index.data(TrackRole.DurationS) or 0.0
+        if duration_s <= 0:
+            return
+        seconds = _parse_time(editor.text())
+        if seconds is None:
+            return
+        fraction = max(0.0, min(seconds / duration_s, 1.0))
+        track_id: str = index.data(TrackRole.TrackId)
+        if track_id:
+            self.seek_requested.emit(track_id, fraction)
 
     def editorEvent(
         self,
