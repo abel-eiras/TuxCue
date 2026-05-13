@@ -26,6 +26,7 @@ class AudioEngine:
         on_start: Callable[[str], None],
         on_end: Callable[[str], None],
         on_error: Callable[[str, str], None],
+        start_fraction: float = 0.0,
     ) -> None:
         """Open and start a stream for track_id. No-op if already playing."""
         with self._lock:
@@ -51,7 +52,7 @@ class AudioEngine:
             self._streams[track_id] = stream
 
         try:
-            stream.start()
+            stream.start(start_fraction=start_fraction)
         except Exception as exc:
             self._remove(track_id)
             on_error(track_id, str(exc))
