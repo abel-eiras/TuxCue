@@ -34,6 +34,15 @@ class MinimalEngine:
     def set_loop(self, track_id: str, loop: bool) -> None:
         pass
 
+    def pause(self, track_id: str) -> None:
+        pass
+
+    def resume(self, track_id: str) -> None:
+        pass
+
+    def is_paused(self, track_id: str) -> bool:
+        return False
+
     def is_playing(self, track_id: str) -> bool:
         return False
 

@@ -121,9 +121,9 @@ class TrackTableModel(QAbstractTableModel):
         if col == Column.DURATION:
             return _fmt_duration(track.duration_s)
         if col == Column.PLAY:
-            if self._play_states.get(track.id, False) and not self._pause_states.get(track.id, False):
-                return "⏸"
-            return "▶"
+            playing = self._play_states.get(track.id, False)
+            paused = self._pause_states.get(track.id, False)
+            return "⏸" if playing and not paused else "▶"
         if col == Column.LOOP:
             return "↺" if track.loop else ""
         if col == Column.VOLUME:
@@ -197,7 +197,8 @@ class TrackTableModel(QAbstractTableModel):
         for row, track in enumerate(self._tracks):
             if track.id == track_id:
                 idx = self.index(row, Column.PLAY)
-                self.dataChanged.emit(idx, idx, [Qt.DisplayRole, TrackRole.PlayState, TrackRole.PauseState])
+                roles = [Qt.DisplayRole, TrackRole.PlayState, TrackRole.PauseState]
+                self.dataChanged.emit(idx, idx, roles)
                 return
 
     # ------------------------------------------------------------------
