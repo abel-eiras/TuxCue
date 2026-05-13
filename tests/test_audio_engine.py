@@ -117,6 +117,39 @@ class TestTrackStreamState:
         assert ts._stopped is True
         ts._device.close.assert_called_once()
 
+    def test_pause_sets_paused_flag(self) -> None:
+        ts = self._make_stream()
+        assert ts.is_paused() is False
+        ts.pause()
+        assert ts._paused is True
+        assert ts.is_paused() is True
+
+    def test_resume_clears_paused_flag(self) -> None:
+        ts = self._make_stream()
+        ts.pause()
+        ts.resume()
+        assert ts._paused is False
+        assert ts.is_paused() is False
+
+    def test_pause_resume_thread_safe(self) -> None:
+        import threading
+        ts = self._make_stream()
+        errors: list[str] = []
+
+        def toggle() -> None:
+            for _ in range(500):
+                ts.pause()
+                ts.resume()
+
+        threads = [threading.Thread(target=toggle) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=2.0)
+        if any(t.is_alive() for t in threads):
+            errors.append("deadlock")
+        assert not errors
+
 
 # ---------------------------------------------------------------------------
 # Integration: AudioEngine behaviour (device mocked)
@@ -221,6 +254,54 @@ class TestAudioEngineSetLoop:
         engine = _make_engine()
         # Should not raise
         engine.set_loop("nonexistent", True)
+
+
+class TestAudioEnginePause:
+    def test_pause_delegates_to_stream(self) -> None:
+        engine = _make_engine()
+        _play_with_mock_start(engine)
+        pause_mock = MagicMock()
+        with patch.object(TrackStream, "pause", pause_mock):
+            engine.pause("t1")
+        pause_mock.assert_called_once()
+
+    def test_pause_is_noop_when_not_playing(self) -> None:
+        engine = _make_engine()
+        engine.pause("nonexistent")  # must not raise
+
+    def test_resume_delegates_to_stream(self) -> None:
+        engine = _make_engine()
+        _play_with_mock_start(engine)
+        resume_mock = MagicMock()
+        with patch.object(TrackStream, "resume", resume_mock):
+            engine.resume("t1")
+        resume_mock.assert_called_once()
+
+    def test_resume_is_noop_when_not_playing(self) -> None:
+        engine = _make_engine()
+        engine.resume("nonexistent")  # must not raise
+
+    def test_is_paused_false_before_pause(self) -> None:
+        engine = _make_engine()
+        _play_with_mock_start(engine)
+        assert engine.is_paused("t1") is False
+
+    def test_is_paused_true_after_pause(self) -> None:
+        engine = _make_engine()
+        _play_with_mock_start(engine)
+        engine.pause("t1")
+        assert engine.is_paused("t1") is True
+
+    def test_is_paused_false_after_resume(self) -> None:
+        engine = _make_engine()
+        _play_with_mock_start(engine)
+        engine.pause("t1")
+        engine.resume("t1")
+        assert engine.is_paused("t1") is False
+
+    def test_is_paused_false_for_unknown_track(self) -> None:
+        engine = _make_engine()
+        assert engine.is_paused("nonexistent") is False
 
 
 class TestAudioEngineIsPlaying:

@@ -28,10 +28,16 @@ class PlayButtonDelegate(QStyledItemDelegate):
         index: QModelIndex | QPersistentModelIndex,
     ) -> None:
         is_playing: bool = index.data(TrackRole.PlayState) or False
-        label = "■" if is_playing else "▶"
+        is_paused: bool = index.data(TrackRole.PauseState) or False
         opt = QStyleOptionButton()
         opt.rect = option.rect
-        opt.text = label
+        if is_playing and not is_paused:
+            opt.text = "⏸"
+        else:
+            opt.text = "▶"
+            if is_paused:
+                # Render as a "checked" / sunken button to distinguish paused from stopped
+                opt.state = opt.state | QStyle.State_On
         QApplication.style().drawControl(QStyle.CE_PushButton, opt, painter)
 
     def editorEvent(

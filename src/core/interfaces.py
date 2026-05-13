@@ -48,6 +48,18 @@ class IAudioEngine(Protocol):
         """Toggle loop state on an active stream."""
         ...
 
+    def pause(self, track_id: str) -> None:
+        """Pause the stream, keeping decoder position. No-op if not playing."""
+        ...
+
+    def resume(self, track_id: str) -> None:
+        """Resume a paused stream from its saved position. No-op if not playing."""
+        ...
+
+    def is_paused(self, track_id: str) -> bool:
+        """Return True if the stream exists and is currently paused."""
+        ...
+
     def is_playing(self, track_id: str) -> bool:
         """Return True if a stream for track_id is currently active."""
         ...

@@ -96,8 +96,20 @@ class MainWindow(QMainWindow):
         self._controller.track_stopped.connect(
             lambda tid: self._model.set_play_state(tid, False)
         )
+        self._controller.track_stopped.connect(
+            lambda tid: self._model.set_pause_state(tid, False)
+        )
         self._controller.playback_ended.connect(
             lambda tid: self._model.set_play_state(tid, False)
+        )
+        self._controller.playback_ended.connect(
+            lambda tid: self._model.set_pause_state(tid, False)
+        )
+        self._controller.track_paused.connect(
+            lambda tid: self._model.set_pause_state(tid, True)
+        )
+        self._controller.track_resumed.connect(
+            lambda tid: self._model.set_pause_state(tid, False)
         )
         self._controller.track_error.connect(self._on_track_error)
         self._view.files_dropped.connect(self._on_files_dropped)
@@ -126,7 +138,10 @@ class MainWindow(QMainWindow):
 
     def _on_play_stop(self, track_id: str) -> None:
         if self._controller.is_playing(track_id):
-            self._controller.stop(track_id)
+            if self._controller.is_paused(track_id):
+                self._controller.resume(track_id)
+            else:
+                self._controller.pause(track_id)
             return
         track = self._model.get_track(track_id)
         if track is not None:
@@ -143,6 +158,7 @@ class MainWindow(QMainWindow):
         self._controller.stop_all()
         for tid in self._model.all_track_ids():
             self._model.set_play_state(tid, False)
+            self._model.set_pause_state(tid, False)
 
     def _on_track_error(self, track_id: str, message: str) -> None:
         QMessageBox.warning(self, tr("dlg_error_title"), message)

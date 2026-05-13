@@ -30,6 +30,10 @@ class AudioController(QObject):
     # Emitted when a non-looping stream reaches its natural end.
     playback_ended: Signal = Signal(str)  # track_id
 
+    # Emitted when a stream is paused or resumed.
+    track_paused: Signal = Signal(str)   # track_id
+    track_resumed: Signal = Signal(str)  # track_id
+
     # Emitted when the audio backend reports an error for a track.
     track_error: Signal = Signal(str, str)  # track_id, human-readable message
 
@@ -71,6 +75,23 @@ class AudioController(QObject):
     def set_loop(self, track_id: str, loop: bool) -> None:
         """Toggle loop state on track_id while it may be playing."""
         self._engine.set_loop(track_id, loop)
+
+    def pause(self, track_id: str) -> None:
+        """Pause track_id without discarding the stream or position."""
+        if not self._engine.is_playing(track_id):
+            return
+        self._engine.pause(track_id)
+        self.track_paused.emit(track_id)
+
+    def resume(self, track_id: str) -> None:
+        """Resume track_id from the paused position."""
+        if not self._engine.is_playing(track_id):
+            return
+        self._engine.resume(track_id)
+        self.track_resumed.emit(track_id)
+
+    def is_paused(self, track_id: str) -> bool:
+        return self._engine.is_paused(track_id)
 
     def is_playing(self, track_id: str) -> bool:
         return self._engine.is_playing(track_id)

@@ -34,12 +34,13 @@ class Column(IntEnum):
 
 
 class TrackRole:
-    PlayState = Qt.UserRole + 1  # bool
-    LoopState = Qt.UserRole + 2  # bool
-    Volume = Qt.UserRole + 3     # float
-    TrackId = Qt.UserRole + 4    # str
-    DurationS = Qt.UserRole + 5  # float
+    PlayState = Qt.UserRole + 1   # bool — stream is active (playing or paused)
+    LoopState = Qt.UserRole + 2   # bool
+    Volume = Qt.UserRole + 3      # float
+    TrackId = Qt.UserRole + 4     # str
+    DurationS = Qt.UserRole + 5   # float
     MissingFile = Qt.UserRole + 6  # bool
+    PauseState = Qt.UserRole + 7   # bool — paused (only meaningful when PlayState=True)
 
 
 _MIME_TYPE = "application/x-tuxcue-row"
@@ -55,6 +56,7 @@ class TrackTableModel(QAbstractTableModel):
         super().__init__(parent)
         self._tracks: list[Track] = []
         self._play_states: dict[str, bool] = {}
+        self._pause_states: dict[str, bool] = {}
 
     # ------------------------------------------------------------------
     # Required QAbstractTableModel overrides
@@ -99,6 +101,8 @@ class TrackTableModel(QAbstractTableModel):
             return tr("tooltip_missing", path=track.path)
         if role == TrackRole.PlayState:
             return self._play_states.get(track.id, False)
+        if role == TrackRole.PauseState:
+            return self._pause_states.get(track.id, False)
         if role == TrackRole.LoopState:
             return track.loop
         if role == TrackRole.Volume:
@@ -117,7 +121,9 @@ class TrackTableModel(QAbstractTableModel):
         if col == Column.DURATION:
             return _fmt_duration(track.duration_s)
         if col == Column.PLAY:
-            return "■" if self._play_states.get(track.id, False) else "▶"
+            if self._play_states.get(track.id, False) and not self._pause_states.get(track.id, False):
+                return "⏸"
+            return "▶"
         if col == Column.LOOP:
             return "↺" if track.loop else ""
         if col == Column.VOLUME:
@@ -175,16 +181,23 @@ class TrackTableModel(QAbstractTableModel):
                 self.beginRemoveRows(QModelIndex(), i, i)
                 self._tracks.pop(i)
                 self._play_states.pop(track_id, None)
+                self._pause_states.pop(track_id, None)
                 self.endRemoveRows()
                 return
 
     def set_play_state(self, track_id: str, playing: bool) -> None:
         self._play_states[track_id] = playing
+        self._notify_play_column(track_id)
+
+    def set_pause_state(self, track_id: str, paused: bool) -> None:
+        self._pause_states[track_id] = paused
+        self._notify_play_column(track_id)
+
+    def _notify_play_column(self, track_id: str) -> None:
         for row, track in enumerate(self._tracks):
             if track.id == track_id:
-                tl = self.index(row, Column.PLAY)
-                br = self.index(row, Column.PLAY)
-                self.dataChanged.emit(tl, br, [Qt.DisplayRole, TrackRole.PlayState])
+                idx = self.index(row, Column.PLAY)
+                self.dataChanged.emit(idx, idx, [Qt.DisplayRole, TrackRole.PlayState, TrackRole.PauseState])
                 return
 
     # ------------------------------------------------------------------

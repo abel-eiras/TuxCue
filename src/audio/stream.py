@@ -41,6 +41,7 @@ class TrackStream:
         self._on_error = on_error
         self._lock = threading.Lock()
         self._stopped = False
+        self._paused = False
         self._device: miniaudio.PlaybackDevice | None = None
         self._generator: Generator[array.array, int, None] | None = None
 
@@ -48,6 +49,9 @@ class TrackStream:
         """
         Generator that feeds decoded frames to the PlaybackDevice, applying
         volume and looping. Runs in the audio thread — must not block the main thread.
+
+        When paused, yields silence while holding the current decoded frame so
+        playback resumes from the exact same position without re-seeking.
         """
         while True:
             try:
@@ -64,9 +68,18 @@ class TrackStream:
                     with self._lock:
                         if self._stopped:
                             return
+                        paused = self._paused
                         vol = self._volume
-                    frames = _apply_volume(frames, vol)
-                    required_frames: int = yield frames
+
+                    if paused:
+                        # Yield silence; do NOT advance the file decoder so we
+                        # resume from the exact position where we paused.
+                        silence = array.array("h", [0] * len(frames))
+                        yield silence
+                        continue
+
+                    out = _apply_volume(frames, vol)
+                    required_frames: int = yield out
                     try:
                         frames = stream.send(required_frames)
                     except StopIteration:
@@ -101,6 +114,20 @@ class TrackStream:
             self._stopped = True
         if self._device is not None:
             self._device.close()
+
+    def pause(self) -> None:
+        """Pause audio output; the file decoder position is preserved. Thread-safe."""
+        with self._lock:
+            self._paused = True
+
+    def resume(self) -> None:
+        """Resume from the paused position. Thread-safe."""
+        with self._lock:
+            self._paused = False
+
+    def is_paused(self) -> bool:
+        with self._lock:
+            return self._paused
 
     def set_volume(self, volume: float) -> None:
         with self._lock:

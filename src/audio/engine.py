@@ -86,6 +86,26 @@ class AudioEngine:
         if stream is not None:
             stream.set_loop(loop)
 
+    def pause(self, track_id: str) -> None:
+        """Pause the stream for track_id. No-op if not playing."""
+        with self._lock:
+            stream = self._streams.get(track_id)
+        if stream is not None:
+            stream.pause()
+
+    def resume(self, track_id: str) -> None:
+        """Resume a paused stream. No-op if not playing."""
+        with self._lock:
+            stream = self._streams.get(track_id)
+        if stream is not None:
+            stream.resume()
+
+    def is_paused(self, track_id: str) -> bool:
+        """Return True if the stream exists and is currently paused."""
+        with self._lock:
+            stream = self._streams.get(track_id)
+        return stream.is_paused() if stream is not None else False
+
     def is_playing(self, track_id: str) -> bool:
         """Return True if a stream for track_id is currently active."""
         with self._lock:
