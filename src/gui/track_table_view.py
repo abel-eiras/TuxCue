@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QAbstractItemModel, Qt, Signal
 from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent, QMouseEvent
 from PySide6.QtWidgets import QAbstractItemView, QStyleOptionViewItem, QTableView, QWidget
 
@@ -55,6 +55,12 @@ class TrackTableView(QTableView):
         self.setColumnWidth(Column.PLAY, 50)
         self.setColumnWidth(Column.LOOP, 50)
         header.setSectionsMovable(True)
+
+    def setModel(self, model: QAbstractItemModel | None) -> None:
+        super().setModel(model)
+        if model is not None:
+            # Place the seek (timeline) column right after Duration, before Play
+            self.horizontalHeader().moveSection(Column.SEEK, 2)
 
     @property
     def play_delegate(self) -> PlayButtonDelegate:
