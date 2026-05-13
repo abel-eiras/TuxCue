@@ -14,6 +14,15 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QColor
 
 from src.core.track import Track
+from src.i18n import tr
+
+_HEADER_KEYS = {
+    0: "col_name",
+    1: "col_duration",
+    2: "col_play",
+    3: "col_loop",
+    4: "col_volume",
+}
 
 
 class Column(IntEnum):
@@ -34,14 +43,6 @@ class TrackRole:
 
 
 _MIME_TYPE = "application/x-tuxcue-row"
-
-_HEADERS = {
-    Column.NAME: "Name",
-    Column.DURATION: "Duration",
-    Column.PLAY: "Play",
-    Column.LOOP: "Loop",
-    Column.VOLUME: "Volume",
-}
 
 
 def _fmt_duration(seconds: float) -> str:
@@ -72,7 +73,8 @@ class TrackTableModel(QAbstractTableModel):
         role: int = Qt.DisplayRole,
     ) -> Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return _HEADERS.get(Column(section), "")
+            key = _HEADER_KEYS.get(section)
+            return tr(key) if key else ""
         return None
 
     def data(
@@ -94,7 +96,7 @@ class TrackTableModel(QAbstractTableModel):
         if role == Qt.ForegroundRole and track.missing_file:
             return QColor("#cc4444")
         if role == Qt.ToolTipRole and track.missing_file:
-            return f"File not found: {track.path}"
+            return tr("tooltip_missing", path=track.path)
         if role == TrackRole.PlayState:
             return self._play_states.get(track.id, False)
         if role == TrackRole.LoopState:

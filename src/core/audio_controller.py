@@ -55,6 +55,8 @@ class AudioController(QObject):
 
     def stop(self, track_id: str) -> None:
         """Stop track_id and reset its position. Ignored if not playing."""
+        if not self._engine.is_playing(track_id):
+            return
         self._engine.stop(track_id)
         self.track_stopped.emit(track_id)
 

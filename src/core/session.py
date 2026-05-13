@@ -11,19 +11,23 @@ _REQUIRED_FIELDS = {"id", "name", "path", "volume", "loop"}
 def save(tracks: list[Track], path: Path) -> None:
     if not path.parent.exists():
         raise FileNotFoundError(f"Directory does not exist: {path.parent}")
-    data = {
-        "version": "1.0",
-        "tracks": [
-            {
-                "id": t.id,
-                "name": t.name,
-                "path": str(t.path.resolve()),
-                "volume": t.volume,
-                "loop": t.loop,
-            }
-            for t in tracks
-        ],
-    }
+    session_dir = path.parent
+    entries = []
+    for t in tracks:
+        abs_path = t.path.resolve()
+        try:
+            rel_path: str | None = str(abs_path.relative_to(session_dir))
+        except ValueError:
+            rel_path = None
+        entries.append({
+            "id": t.id,
+            "name": t.name,
+            "path": str(abs_path),
+            "path_relative": rel_path,
+            "volume": t.volume,
+            "loop": t.loop,
+        })
+    data = {"version": "1.0", "tracks": entries}
     path.write_text(json.dumps(data, indent=2))
 
 
@@ -39,7 +43,13 @@ def load(path: Path) -> tuple[list[Track], list[str]]:
             raise ValueError(
                 f"Track at index {i} is missing required fields: {missing}"
             )
-        p = Path(item["path"])
+        abs_path = Path(item["path"])
+        rel_str = item.get("path_relative")
+        if not abs_path.exists() and rel_str is not None:
+            candidate = path.parent / rel_str
+            p = candidate if candidate.exists() else abs_path
+        else:
+            p = abs_path
         file_missing = not p.exists()
         tracks.append(
             Track(

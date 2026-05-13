@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
@@ -12,12 +13,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from src.config import load as load_config
+from src.config import save as save_config
 from src.core.audio_controller import AudioController
 from src.core.track import Track
 from src.gui.filter_bar import FilterBar
 from src.gui.proxy_model import TrackFilterProxyModel
 from src.gui.track_table_model import Column, TrackRole, TrackTableModel
 from src.gui.track_table_view import TrackTableView
+from src.i18n import get_locale, set_locale, tr
+from src.i18n.strings import SUPPORTED_LOCALES
 
 
 class MainWindow(QMainWindow):
@@ -51,16 +56,30 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
     def _build_menu(self) -> None:
-        menu = self.menuBar().addMenu("&File")
-        menu.addAction("&New Session", self._on_new_session, "Ctrl+N")
-        menu.addAction("&Open…", self._on_open, "Ctrl+O")
-        menu.addAction("&Save", self._on_save, "Ctrl+S")
-        menu.addAction("Save &As…", self._on_save_as, "Ctrl+Shift+S")
+        menu = self.menuBar().addMenu(tr("menu_file"))
+        menu.addAction(tr("menu_new"), self._on_new_session, "Ctrl+N")
+        menu.addAction(tr("menu_open"), self._on_open, "Ctrl+O")
+        menu.addAction(tr("menu_save"), self._on_save, "Ctrl+S")
+        menu.addAction(tr("menu_save_as"), self._on_save_as, "Ctrl+Shift+S")
+
+        settings_menu = self.menuBar().addMenu(tr("menu_settings"))
+        lang_menu = settings_menu.addMenu(tr("menu_language"))
+
+        lang_group = QActionGroup(self)
+        lang_group.setExclusive(True)
+        current = get_locale()
+        for locale in SUPPORTED_LOCALES:
+            action = lang_menu.addAction(tr(f"lang_{locale}"))
+            action.setCheckable(True)
+            action.setChecked(locale == current)
+            action.setData(locale)
+            lang_group.addAction(action)
+        lang_group.triggered.connect(self._on_language_changed)
 
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Main")
         self.addToolBar(toolbar)
-        stop_all_action = toolbar.addAction("Stop All")
+        stop_all_action = toolbar.addAction(tr("toolbar_stop_all"))
         stop_all_action.triggered.connect(self._on_stop_all)
 
     def _connect_signals(self) -> None:
@@ -82,6 +101,16 @@ class MainWindow(QMainWindow):
         )
         self._controller.track_error.connect(self._on_track_error)
         self._view.files_dropped.connect(self._on_files_dropped)
+
+    def _on_language_changed(self, action: object) -> None:
+        if not isinstance(action, QAction):
+            return
+        locale = action.data()
+        config = load_config()
+        config["language"] = locale
+        save_config(config)
+        set_locale(locale)
+        QMessageBox.information(self, tr("dlg_lang_title"), tr("dlg_lang_body"))
 
     def _on_model_data_changed(
         self, top_left: QModelIndex, bottom_right: QModelIndex, roles: list[int]
@@ -116,7 +145,7 @@ class MainWindow(QMainWindow):
             self._model.set_play_state(tid, False)
 
     def _on_track_error(self, track_id: str, message: str) -> None:
-        QMessageBox.warning(self, "Playback Error", message)
+        QMessageBox.warning(self, tr("dlg_error_title"), message)
 
     def _on_files_dropped(self, paths: list[Path]) -> None:
         from src.audio.probe import probe_duration
@@ -129,8 +158,8 @@ class MainWindow(QMainWindow):
         if self._model.rowCount() > 0:
             reply = QMessageBox.question(
                 self,
-                "New Session",
-                "Clear the current session?",
+                tr("dlg_new_title"),
+                tr("dlg_new_body"),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply != QMessageBox.StandardButton.Yes:
@@ -141,15 +170,15 @@ class MainWindow(QMainWindow):
 
     def _on_open(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open Session", "", "TuxCue Sessions (*.tuxcue.json)"
+            self, tr("dlg_open_title"), "", tr("dlg_open_filter")
         )
         if not path:
             return
         self._load_session(Path(path))
 
     def _load_session(self, path: Path) -> None:
-        from src.core import session as session_manager
         from src.audio.probe import probe_duration
+        from src.core import session as session_manager
         tracks, errors = session_manager.load(path)
         for tid in list(self._model.all_track_ids()):
             self._model.remove_track(tid)
@@ -158,7 +187,7 @@ class MainWindow(QMainWindow):
             self._model.add_track(track)
         self._session_path = path
         if errors:
-            QMessageBox.warning(self, "Missing Files", "\n".join(errors))
+            QMessageBox.warning(self, tr("dlg_missing_title"), "\n".join(errors))
 
     def _on_save(self) -> None:
         if self._session_path is None:
@@ -167,7 +196,7 @@ class MainWindow(QMainWindow):
             self._save_to(self._session_path)
 
     def _on_save_as(self) -> None:
-        dialog = QFileDialog(self, "Save Session", "", "TuxCue Sessions (*.tuxcue.json)")
+        dialog = QFileDialog(self, tr("dlg_save_title"), "", tr("dlg_open_filter"))
         dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
         dialog.setDefaultSuffix("tuxcue.json")
         if not dialog.exec():

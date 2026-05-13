@@ -18,7 +18,7 @@ Un reproductor de audio para regidores y técnicos de sonido en producciones tea
 
 ## 🎬 Por qué existe esto
 
-Si alguna vez has intentado usar VLC, Audacity o cualquier reproductor convencional para manejar los efectos de sonido de una obra de teatro durante una función, sabes lo que es sufrir. Cuando el director te pide "música de entrada, trueno a los 30 segundos, y que el ambiente de lluvia no pare" al mismo tiempo, no hay forma elegante de hacerlo con un reproductor normal.
+Si alguna vez has intentado usar VLC, Audacity o cualquier reproductor convencional para manejar los efectos de sonido de una obra de teatro durante una función, sabes lo que es sufrir. Cuando el director te pide “música de entrada, trueno a los 30 segundos, y que el ambiente de lluvia no pare” al mismo tiempo, no hay forma elegante de hacerlo con un reproductor normal.
 
 TuxCue nace de esa necesidad: un cartwall poifónico donde cada pista es independiente, puedes disparar y parar lo que quieras cuando quieras, ajustar el volumen en tiempo real sin cortes y organizar los cues exactamente como aparecen en el guión.
 
