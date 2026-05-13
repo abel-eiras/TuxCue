@@ -1,9 +1,9 @@
 # TuxCue — Architecture Document
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Status:** Activo  
 **Fuente:** Documento Maestro de Especificaciones  
-**Fecha:** 2026-05-11  
+**Fecha:** 2026-05-13  
 
 ---
 
@@ -71,7 +71,8 @@ TuxCue/
 │   ├── audio/
 │   │   ├── __init__.py
 │   │   ├── engine.py               # AudioEngine: gestiona streams miniaudio
-│   │   └── stream.py               # TrackStream: encapsula un stream individual
+│   │   ├── stream.py               # TrackStream: encapsula un stream individual
+│   │   └── probe.py                # probe_duration(): sondeo de duración sin QApp
 │   │
 │   └── gui/
 │       ├── __init__.py
@@ -145,17 +146,21 @@ class Column(IntEnum):
     PLAY     = 2
     LOOP     = 3
     VOLUME   = 4
+    SEEK     = 5   # Seek slider + progress indicator
 ```
 
 #### Roles personalizados para los delegados:
 
 ```python
 class TrackRole:
-    PlayState = Qt.UserRole + 1   # bool: ¿está reproduciendo?
-    LoopState = Qt.UserRole + 2   # bool
-    Volume    = Qt.UserRole + 3   # float 0.0–1.0
-    TrackId   = Qt.UserRole + 4   # str UUID
-    DurationS = Qt.UserRole + 5   # float segundos
+    PlayState   = Qt.UserRole + 1   # bool: ¿está reproduciendo?
+    LoopState   = Qt.UserRole + 2   # bool
+    Volume      = Qt.UserRole + 3   # float 0.0–1.0
+    TrackId     = Qt.UserRole + 4   # str UUID
+    DurationS   = Qt.UserRole + 5   # float segundos
+    MissingFile = Qt.UserRole + 6   # bool: fichero no encontrado
+    PauseState  = Qt.UserRole + 7   # bool: ¿está en pausa?
+    SeekPos     = Qt.UserRole + 8   # float 0.0–1.0: posición de reproducción
 ```
 
 ### 5.2 Drag & Drop Interno
@@ -165,7 +170,7 @@ El modelo soporta reordenación interna mediante los métodos estándar de Qt:
 - `flags()`: incluye `Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled` en cada fila.
 - `supportedDragActions()` / `supportedDropActions()` → `Qt.MoveAction`.
 - `mimeData()`: serializa las filas origen.
-- `dropMimeData()`: reordena la lista interna y emite `layoutChanged`.
+- `dropMimeData()`: reordena la lista interna usando `beginMoveRows`/`endMoveRows`.
 
 El drag & drop externo (desde el SO) para añadir pistas se gestiona en `TrackTableView`, no en el modelo.
 
@@ -213,7 +218,7 @@ El Documento Maestro especifica el uso de **`QStyledItemDelegate`** (o `setIndex
 
 ### 7.1 `PlayButtonDelegate(QStyledItemDelegate)`
 
-- `paint()`: dibuja ▶ o ■ según `TrackRole.PlayState`.
+- `paint()`: dibuja ▶ o ⏸ según `TrackRole.PlayState` / `TrackRole.PauseState`.
 - `editorEvent()`: detecta `MouseButtonRelease` y emite `play_stop_requested(track_id: str)`.
 - No crea widgets persistentes; el estado se actualiza via `dataChanged`.
 
@@ -225,9 +230,13 @@ El Documento Maestro especifica el uso de **`QStyledItemDelegate`** (o `setIndex
 ### 7.3 `VolumeSliderDelegate(QStyledItemDelegate)`
 
 - `paint()`: dibuja un slider horizontal con el valor de `TrackRole.Volume`.
-- `createEditor()`: devuelve un `QSlider` real durante la edición activa.
-- `setEditorData()` / `setModelData()`: sincroniza entre modelo y editor.
-- Emite cambios en tiempo real via `commitData` para que el `AudioController` los propague al stream.
+- `editorEvent()`: intercepta `MouseButtonPress`/`MouseMove`; convierte la posición X del ratón en volumen [0,1] y escribe con `setData(index, volume, TrackRole.Volume)`.
+
+### 7.4 `SeekSliderDelegate(QStyledItemDelegate)`
+
+- `paint()`: dibuja un `QStyleOptionSlider` con el valor de `TrackRole.SeekPos` [0.0–1.0]. Cuando la pista no está reproduciendo, el slider se pinta deshabilitado (`State_Enabled` eliminado del state).
+- `editorEvent()`: intercepta `MouseButtonPress`/`MouseMove`; calcula la fracción de posición a partir de la coordenada X y emite `seek_requested(track_id: str, fraction: float)` solo si la pista está activa.
+- No crea widgets persistentes; el estado de posición se actualiza via `dataChanged` desde el `QTimer` de polling.
 
 > **Nota sobre `setIndexWidget`**: Para filas con pocos elementos, `setIndexWidget` es válido como alternativa más simple. Para listas de más de ~100 pistas, los delegados `paint()`-based son significativamente más eficientes.
 
@@ -247,23 +256,50 @@ GUI  ◄──signals──   AudioController  ◄──callbacks──         
 #### API pública (llamada desde la GUI):
 
 ```
-play(track_id, path, volume, loop) → None
+play(track_id, path, volume, loop)  → None
 stop(track_id)                      → None
 stop_all()                          → None
 set_volume(track_id, volume)        → None
 set_loop(track_id, loop)            → None
+pause(track_id)                     → None    # Fase 2
+resume(track_id)                    → None    # Fase 2
+is_paused(track_id)                 → bool    # Fase 2
+seek(track_id, fraction)            → None    # Fase 3 — fraction: [0.0, 1.0]
+get_position(track_id)              → float   # Fase 3 — fracción de avance
+is_playing(track_id)                → bool
 ```
 
 #### Señales Qt emitidas hacia la GUI:
 
 ```python
 track_started  = Signal(str)        # track_id: inicio de reproducción confirmado
-track_stopped  = Signal(str)        # track_id: parada confirmada
+track_stopped  = Signal(str)        # track_id: parada confirmada (Stop explícito)
 playback_ended = Signal(str)        # track_id: fin natural (sin loop)
+track_paused   = Signal(str)        # track_id: pausa activada
+track_resumed  = Signal(str)        # track_id: reanudación tras pausa
 track_error    = Signal(str, str)   # track_id, mensaje_de_error
 ```
 
-### 8.2 Flujo de Play (end-to-end)
+### 8.2 Ciclo de estados del botón Play
+
+El botón PLAY implementa un ciclo de tres estados:
+
+```
+[Detenido ▶]  →  play()   →  [Reproduciendo ⏸]
+                                    │
+                          pulsación → pause()
+                                    ↓
+                             [En pausa ▶ (sunken)]
+                                    │
+                          pulsación → resume()
+                                    ↓
+                             [Reproduciendo ⏸]
+```
+
+- `MainWindow._on_play_stop()` comprueba `is_playing()` e `is_paused()` para decidir qué acción ejecutar.
+- El modelo `TrackTableModel` mantiene dos flags independientes: `_play_states` y `_pause_states`.
+
+### 8.3 Flujo de Play (end-to-end)
 
 ```
 [Usuario pulsa ▶ en la fila]
@@ -272,7 +308,7 @@ track_error    = Signal(str, str)   # track_id, mensaje_de_error
 PlayButtonDelegate.editorEvent()
         │ emite: play_stop_requested(track_id)
         ▼
-MainWindow.on_play_stop(track_id)
+MainWindow._on_play_stop(track_id)
         │ llama a: AudioController.play(track_id, path, volume, loop)
         ▼
 AudioEngine._open_stream(...)     ← hilo de audio de miniaudio
@@ -285,8 +321,22 @@ AudioController emite: track_started(track_id)
 TrackTableModel.set_play_state(track_id, playing=True)
         │ emite dataChanged(index)
         ▼
-[Vista repinta la celda → botón cambia a ■]
+[Vista repinta la celda → botón cambia a ⏸]
 ```
+
+### 8.4 Actualización de posición (Seek polling)
+
+La posición de reproducción no se propaga mediante callbacks (evita overhead en el hilo de audio). En su lugar, `MainWindow` usa un `QTimer` a 100 ms:
+
+```
+QTimer(100ms) → _on_position_poll()
+    para cada track_id activo:
+        pos = AudioController.get_position(track_id)   # lee _frames_played/_total_frames
+        TrackTableModel.set_seek_pos(track_id, pos)    # emite dataChanged(SeekPos)
+        → SeekSliderDelegate.paint() repinta el slider
+```
+
+El seek iniciado por el usuario sigue el camino inverso: `SeekSliderDelegate.editorEvent()` → `seek_requested(track_id, fraction)` → `AudioController.seek()` → `TrackStream.seek()` (escribe `_seek_frame`). El generador de audio detecta `_seek_frame` en el siguiente ciclo y reabre `miniaudio.stream_file(seek_frame=N)`.
 
 ---
 
@@ -308,6 +358,9 @@ Encapsula por stream:
 - El volumen actual, aplicado frame a frame.
 - El estado de loop.
 - Un método `stop()` thread-safe.
+- **Pausa** (`pause()`/`resume()`): el generador detecta `_paused` y devuelve `array("h", [0]*len)` (silencio) sin avanzar `_frames_played`. La posición del decodificador se preserva porque `miniaudio.stream_file` no se avanza.
+- **Seek** (`seek(fraction)`): escribe `_seek_frame = int(fraction * _total_frames)`. El generador detecta el valor en el siguiente ciclo, rompe el bucle interno y reabre `miniaudio.stream_file(seek_frame=_seek_frame)`.
+- **Posición** (`position_fraction()`): devuelve `min(_frames_played / _total_frames, 1.0)`. `_total_frames` se obtiene via `miniaudio` al inicializar el stream.
 
 ### 9.3 Control de Volumen en Tiempo Real
 
