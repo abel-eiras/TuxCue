@@ -238,6 +238,55 @@ class VolumeSliderDelegate(QStyledItemDelegate):
         opt.activeSubControls = QStyle.SC_None
         QApplication.style().drawComplexControl(QStyle.CC_Slider, opt, painter)
 
+        text = f"{int(volume * 100)}%"
+        painter.save()
+        outline = QColor(0, 0, 0, 200)
+        for dx, dy in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+            painter.setPen(outline)
+            painter.drawText(
+                option.rect.translated(dx, dy), Qt.AlignCenter | Qt.AlignVCenter, text
+            )
+        painter.setPen(QColor(255, 255, 255))
+        painter.drawText(option.rect, Qt.AlignCenter | Qt.AlignVCenter, text)
+        painter.restore()
+
+    def createEditor(
+        self,
+        parent: QWidget,
+        option: Any,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> QWidget:
+        editor = QLineEdit(parent)
+        editor.setAlignment(Qt.AlignCenter)
+        editor.setPlaceholderText("0-100")
+        return editor
+
+    def setEditorData(
+        self,
+        editor: QWidget,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> None:
+        if not isinstance(editor, QLineEdit):
+            return
+        volume: float = index.data(TrackRole.Volume) or 0.0
+        editor.setText(str(int(volume * 100)))
+        editor.selectAll()
+
+    def setModelData(
+        self,
+        editor: QWidget,
+        model: Any,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> None:
+        if not isinstance(editor, QLineEdit):
+            return
+        try:
+            value = int(editor.text().strip().rstrip("%"))
+        except ValueError:
+            return
+        fraction = max(0.0, min(value / 100.0, 1.0))
+        model.setData(index, fraction, TrackRole.Volume)
+
     def editorEvent(
         self,
         event: Any,

@@ -169,7 +169,7 @@ class TrackTableModel(QAbstractTableModel):
         base = Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
         if not index.isValid():
             return Qt.ItemIsDropEnabled
-        if index.column() in (Column.NAME, Column.SEEK):
+        if index.column() in (Column.NAME, Column.SEEK, Column.VOLUME):
             return base | Qt.ItemIsEditable
         return base
 
