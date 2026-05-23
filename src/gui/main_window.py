@@ -190,6 +190,7 @@ class MainWindow(QMainWindow):
         self._controller.track_error.connect(self._on_track_error)
         self._view.files_dropped.connect(self._on_files_dropped)
         self._view.seek_delegate.seek_requested.connect(self._on_seek)
+        self._view.remove_requested.connect(self._on_remove_tracks)
 
     # ── Recent files ──────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -302,6 +303,12 @@ class MainWindow(QMainWindow):
 
     def _on_track_error(self, track_id: str, message: str) -> None:
         QMessageBox.warning(self, tr("dlg_error_title"), message)
+
+    def _on_remove_tracks(self, track_ids: list[str]) -> None:
+        for tid in track_ids:
+            if self._controller.is_playing(tid):
+                self._controller.stop(tid)
+            self._model.remove_track(tid)
 
     def _on_files_dropped(self, paths: list[Path]) -> None:
         from src.audio.probe import probe_duration
