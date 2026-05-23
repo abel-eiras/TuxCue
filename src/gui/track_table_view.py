@@ -3,8 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QAbstractItemModel, Qt, Signal
-from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent, QMouseEvent
-from PySide6.QtWidgets import QAbstractItemView, QStyleOptionViewItem, QTableView, QWidget
+from PySide6.QtGui import QDragEnterEvent, QDragMoveEvent, QDropEvent, QKeyEvent, QMouseEvent
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QMenu,
+    QStyleOptionViewItem,
+    QTableView,
+    QWidget,
+)
 
 from src.gui.delegates import (
     LoopButtonDelegate,
@@ -12,13 +18,15 @@ from src.gui.delegates import (
     SeekSliderDelegate,
     VolumeSliderDelegate,
 )
-from src.gui.track_table_model import Column
+from src.gui.track_table_model import Column, TrackRole
+from src.i18n import tr
 
 _SLIDER_COLUMNS = (Column.VOLUME, Column.SEEK)
 
 
 class TrackTableView(QTableView):
     files_dropped: Signal = Signal(list)
+    remove_requested: Signal = Signal(list)  # list[str] of track_ids
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -85,6 +93,31 @@ class TrackTableView(QTableView):
     @property
     def seek_delegate(self) -> SeekSliderDelegate:
         return self._seek_delegate
+
+    def _selected_track_ids(self) -> list[str]:
+        ids = []
+        for idx in self.selectionModel().selectedRows():
+            tid: str = idx.data(TrackRole.TrackId)
+            if tid:
+                ids.append(tid)
+        return ids
+
+    def contextMenuEvent(self, event: object) -> None:
+        ids = self._selected_track_ids()
+        if not ids:
+            return
+        menu = QMenu(self)
+        remove_action = menu.addAction(tr("ctx_remove_track"))
+        if menu.exec(event.globalPos()) == remove_action:  # type: ignore[attr-defined]
+            self.remove_requested.emit(ids)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+            ids = self._selected_track_ids()
+            if ids:
+                self.remove_requested.emit(ids)
+                return
+        super().keyPressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if event.buttons() & Qt.MouseButton.LeftButton:

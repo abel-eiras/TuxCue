@@ -45,6 +45,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "filter_30s_2m": "30s – 2m",
         "filter_2m_5m": "2m – 5m",
         "filter_over_5m": "> 5m",
+        # Context menu
+        "ctx_remove_track": "Remove",
         # Tooltips
         "tooltip_missing": "File not found: {path}",
     },
@@ -92,6 +94,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "filter_30s_2m": "30s – 2m",
         "filter_2m_5m": "2m – 5m",
         "filter_over_5m": "> 5m",
+        # Context menu
+        "ctx_remove_track": "Eliminar",
         # Tooltips
         "tooltip_missing": "Fichero no encontrado: {path}",
     },
@@ -139,6 +143,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "filter_30s_2m": "30s – 2m",
         "filter_2m_5m": "2m – 5m",
         "filter_over_5m": "> 5m",
+        # Context menu
+        "ctx_remove_track": "Eliminar",
         # Tooltips
         "tooltip_missing": "Ficheiro non atopado: {path}",
     },
