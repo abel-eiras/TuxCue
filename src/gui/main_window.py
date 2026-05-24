@@ -190,6 +190,7 @@ class MainWindow(QMainWindow):
         self._controller.track_error.connect(self._on_track_error)
         self._view.files_dropped.connect(self._on_files_dropped)
         self._view.seek_delegate.seek_requested.connect(self._on_seek)
+        self._view.reset_delegate.reset_requested.connect(self._on_reset_track)
         self._view.remove_requested.connect(self._on_remove_tracks)
 
     # ── Recent files ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -304,6 +305,12 @@ class MainWindow(QMainWindow):
     def _on_track_error(self, track_id: str, message: str) -> None:
         QMessageBox.warning(self, tr("dlg_error_title"), message)
 
+    def _on_reset_track(self, track_id: str) -> None:
+        if self._controller.is_playing(track_id):
+            self._controller.stop(track_id)
+        else:
+            self._model.reset_cue_pos(track_id)
+
     def _on_remove_tracks(self, track_ids: list[str]) -> None:
         for tid in track_ids:
             if self._controller.is_playing(tid):
@@ -408,8 +415,13 @@ class MainWindow(QMainWindow):
 
     # ── Column state persistence ──────────────────────────────────────────────────────────────────
 
+    # Increment when columns are added/removed so stale saved state is discarded
+    _COLUMN_STATE_VERSION = 2
+
     def _restore_column_state(self) -> None:
         config = load_config()
+        if config.get("column_state_version") != self._COLUMN_STATE_VERSION:
+            return
         state_b64: str = config.get("column_state", "")  # type: ignore[assignment]
         if state_b64:
             self._view.horizontalHeader().restoreState(base64.b64decode(state_b64))
@@ -418,6 +430,7 @@ class MainWindow(QMainWindow):
         config = load_config()
         state_bytes = bytes(self._view.horizontalHeader().saveState())
         config["column_state"] = base64.b64encode(state_bytes).decode()
+        config["column_state_version"] = self._COLUMN_STATE_VERSION
         config["font_scale"] = self._font_scale
         config["theme"] = self._theme
         save_config(config)

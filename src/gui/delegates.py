@@ -231,6 +231,7 @@ class ResetButtonDelegate(QStyledItemDelegate):
         opt = QStyleOptionButton()
         opt.rect = option.rect
         opt.text = "⏮"
+        opt.state = QStyle.State_Enabled
         QApplication.style().drawControl(QStyle.CE_PushButton, opt, painter)
 
     def editorEvent(

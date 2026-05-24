@@ -80,8 +80,10 @@ class TrackTableView(QTableView):
     def setModel(self, model: QAbstractItemModel | None) -> None:
         super().setModel(model)
         if model is not None:
-            # Place the seek (timeline) column right after Duration, before Play
-            self.horizontalHeader().moveSection(Column.SEEK, 2)
+            header = self.horizontalHeader()
+            # Seek right after Duration; Reset between Play and Loop
+            header.moveSection(Column.SEEK, 2)
+            header.moveSection(header.visualIndex(Column.RESET), 4)
 
     @property
     def play_delegate(self) -> PlayButtonDelegate:
