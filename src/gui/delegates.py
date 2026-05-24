@@ -216,6 +216,38 @@ class SeekSliderDelegate(QStyledItemDelegate):
         return False
 
 
+class ResetButtonDelegate(QStyledItemDelegate):
+    reset_requested: Signal = Signal(str)
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+
+    def paint(
+        self,
+        painter: QPainter,
+        option: Any,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> None:
+        opt = QStyleOptionButton()
+        opt.rect = option.rect
+        opt.text = "⏮"
+        QApplication.style().drawControl(QStyle.CE_PushButton, opt, painter)
+
+    def editorEvent(
+        self,
+        event: Any,
+        model: Any,
+        option: Any,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> bool:
+        if event.type() == QMouseEvent.Type.MouseButtonRelease:
+            track_id: str = index.data(TrackRole.TrackId)
+            if track_id:
+                self.reset_requested.emit(track_id)
+            return True
+        return False
+
+
 class VolumeSliderDelegate(QStyledItemDelegate):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)

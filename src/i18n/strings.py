@@ -27,6 +27,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "col_loop": "Loop",
         "col_volume": "Volume",
         "col_seek": "Seek",
+        "col_reset": "Reset",
         # Dialogs
         "dlg_new_title": "New Session",
         "dlg_new_body": "Clear the current session?",
@@ -76,6 +77,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "col_loop": "Loop",
         "col_volume": "Volumen",
         "col_seek": "Posición",
+        "col_reset": "Reset",
         # Dialogs
         "dlg_new_title": "Nueva sesión",
         "dlg_new_body": "¿Limpiar la sesión actual?",
@@ -125,6 +127,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "col_loop": "Loop",
         "col_volume": "Volume",
         "col_seek": "Posición",
+        "col_reset": "Reset",
         # Dialogs
         "dlg_new_title": "Nova sesión",
         "dlg_new_body": "¿Limpar a sesión actual?",

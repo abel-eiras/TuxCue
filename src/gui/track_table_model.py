@@ -23,6 +23,7 @@ _HEADER_KEYS = {
     3: "col_loop",
     4: "col_volume",
     5: "col_seek",
+    6: "col_reset",
 }
 
 
@@ -33,6 +34,7 @@ class Column(IntEnum):
     LOOP = 3
     VOLUME = 4
     SEEK = 5
+    RESET = 6
 
 
 class TrackRole:
@@ -135,6 +137,8 @@ class TrackTableModel(QAbstractTableModel):
         if col == Column.VOLUME:
             return f"{int(track.volume * 100)}%"
         if col == Column.SEEK:
+            return ""
+        if col == Column.RESET:
             return ""
         return None
 
